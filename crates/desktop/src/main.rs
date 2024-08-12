@@ -9,6 +9,10 @@ fn main() {
     let level = level::Level::new();
     println!("{}", level);
 
+    // TODO: Select new level if not good enough
+    // - has 2x2 wall
+    // - has row or column of walls
+
     App::new()
         .add_plugins((DefaultPlugins, DungeonsAndDiagramsPlugin))
         .run();
@@ -258,7 +262,13 @@ mod level {
                     || cells[x + 1][y + 1] == Cell::Wall;
 
                 // Move up
-                if y > 0 && top_left_good && top_right_good && cells[x][y - 1] == Cell::Any {
+                if y > 0
+                    && top_left_good
+                    && top_right_good
+                    && cells[x][y - 1] == Cell::Any
+                    // Don't connect to existing corridor
+                    && (y == 1 || !matches!(cells[x][y - 2], Cell::Floor(_)))
+                {
                     free_neighbours.push((x, y - 1));
                 }
 
@@ -267,12 +277,20 @@ mod level {
                     && bottom_left_good
                     && bottom_right_good
                     && cells[x][y + 1] == Cell::Any
+                    // Don't connect to existing corridor
+                    && (y + 2 == SIZE || !matches!(cells[x][y + 2], Cell::Floor(_)))
                 {
                     free_neighbours.push((x, y + 1));
                 }
 
                 // Move left
-                if x > 0 && top_left_good && bottom_left_good && cells[x - 1][y] == Cell::Any {
+                if x > 0
+                    && top_left_good
+                    && bottom_left_good
+                    && cells[x - 1][y] == Cell::Any
+                    // Don't connect to existing corridor
+                    && (x == 1 || !matches!(cells[x - 2][y], Cell::Floor(_)))
+                {
                     free_neighbours.push((x - 1, y));
                 }
 
@@ -281,6 +299,8 @@ mod level {
                     && top_right_good
                     && bottom_right_good
                     && cells[x + 1][y] == Cell::Any
+                    // Don't connect to existing corridor
+                    && (x + 2 == SIZE || !matches!(cells[x + 2][y], Cell::Floor(_)))
                 {
                     free_neighbours.push((x + 1, y));
                 }
@@ -304,17 +324,49 @@ mod level {
                 expand_from.shuffle(&mut rng);
             }
 
-            // Replace remaining Any cells with walls
+            // Replace remaining Any cells with walls and place monsters
             (0..SIZE).for_each(|x| {
                 (0..SIZE).for_each(|y| {
-                    if cells[x][y] == Cell::Any {
-                        cells[x][y] = Cell::Wall;
+                    match cells[x][y] {
+                        Cell::Any => {
+                            cells[x][y] = Cell::Wall;
+                        }
+                        Cell::Floor(Floor::Empty) => {
+                            let mut num_neighbours = 0;
+
+                            // Up
+                            if y > 0 && matches!(cells[x][y - 1], Cell::Floor(_)) {
+                                num_neighbours += 1;
+                            }
+
+                            // Down
+                            if y + 1 < SIZE && matches!(cells[x][y + 1], Cell::Floor(_)) {
+                                num_neighbours += 1;
+                            }
+
+                            // Left
+                            if x > 0 && matches!(cells[x - 1][y], Cell::Floor(_)) {
+                                num_neighbours += 1;
+                            }
+
+                            // Right
+                            if x + 1 < SIZE && matches!(cells[x + 1][y], Cell::Floor(_)) {
+                                num_neighbours += 1;
+                            }
+
+                            assert_ne!(
+                                num_neighbours, 0,
+                                "no empty floor should be without neighbours"
+                            );
+
+                            if num_neighbours == 1 {
+                                cells[x][y] = Cell::Floor(Floor::Monster);
+                            }
+                        }
+                        _ => {}
                     }
                 })
             });
-
-            // TODO: Fill in monsters
-
             Level { cells }
         }
     }
