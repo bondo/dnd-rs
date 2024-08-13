@@ -11,10 +11,6 @@ fn main() {
     let level = level::Level::new();
     println!("{}", level);
 
-    // TODO: Select new level if not good enough
-    // - has 2x2 wall
-    // - has row or column of walls
-
     App::new()
         .add_plugins((DefaultPlugins, DungeonsAndDiagramsPlugin))
         .run();

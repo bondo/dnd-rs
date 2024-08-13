@@ -104,131 +104,78 @@ impl Level {
             cells[treasure_room_x + 3][treasure_room_y + 3] = Cell::Wall;
         }
 
-        let (exit_x, exit_y) = potential_exits[rng.gen::<usize>() % potential_exits.len()];
-        cells[exit_x][exit_y] = Cell::Floor(Floor::Empty);
+        let (exit_x, exit_y) = potential_exits[rng.gen_range(0..potential_exits.len())];
+        cells[exit_x][exit_y] = Cell::Any;
 
         let mut expand_from = vec![(exit_x, exit_y)];
-        while let Some((x, y)) = expand_from.pop() {
-            let mut free_neighbours: Vec<(usize, usize)> = Vec::new();
+        loop {
+            if expand_from.is_empty() {
+                break;
+            }
 
-            let top_left_good = x == 0 || y == 0 || !matches!(cells[x - 1][y - 1], Cell::Floor(_));
+            // Pick a random cell to expand from
+            let (x, y) = expand_from.swap_remove(rng.gen_range(0..expand_from.len()));
 
-            let top_right_good =
-                x + 1 == SIZE || y == 0 || !matches!(cells[x + 1][y - 1], Cell::Floor(_));
+            if cells[x][y] != Cell::Any {
+                continue;
+            }
 
-            let bottom_left_good =
-                x == 0 || y + 1 == SIZE || !matches!(cells[x - 1][y + 1], Cell::Floor(_));
-
-            let bottom_right_good =
-                x + 1 == SIZE || y + 1 == SIZE || !matches!(cells[x + 1][y + 1], Cell::Floor(_));
-
-            // Move up
-            if y > 0
-                    && top_left_good
-                    && top_right_good
-                    && cells[x][y - 1] == Cell::Any
-                    // Don't connect to existing corridor
-                    && (y == 1 || !matches!(cells[x][y - 2], Cell::Floor(_)))
+            if Level::filtered_neighbours(x, y, |nx, ny| matches!(cells[nx][ny], Cell::Floor(_)))
+                .len()
+                != 1
             {
-                free_neighbours.push((x, y - 1));
+                continue;
             }
 
-            // Move down
-            if y + 1 < SIZE
-                    && bottom_left_good
-                    && bottom_right_good
-                    && cells[x][y + 1] == Cell::Any
-                    // Don't connect to existing corridor
-                    && (y + 2 == SIZE || !matches!(cells[x][y + 2], Cell::Floor(_)))
-            {
-                free_neighbours.push((x, y + 1));
-            }
+            cells[x][y] = Cell::Floor(Floor::Empty);
 
-            // Move left
-            if x > 0
-                    && top_left_good
-                    && bottom_left_good
-                    && cells[x - 1][y] == Cell::Any
-                    // Don't connect to existing corridor
-                    && (x == 1 || !matches!(cells[x - 2][y], Cell::Floor(_)))
-            {
-                free_neighbours.push((x - 1, y));
-            }
-
-            // Move right
-            if x + 1 < SIZE
-                    && top_right_good
-                    && bottom_right_good
-                    && cells[x + 1][y] == Cell::Any
-                    // Don't connect to existing corridor
-                    && (x + 2 == SIZE || !matches!(cells[x + 2][y], Cell::Floor(_)))
-            {
-                free_neighbours.push((x + 1, y));
-            }
-
-            // Ignore a random number of neighbours
-            if free_neighbours.len() > 1 {
-                free_neighbours.shuffle(&mut rng);
-                let num_drop = rng.gen_range(0..free_neighbours.len());
-                (0..num_drop).for_each(|_| {
-                    free_neighbours.pop();
-                });
-            }
-
-            // Put floor on remaining neighbours and queue expansion
-            free_neighbours.into_iter().for_each(|(x, y)| {
-                cells[x][y] = Cell::Floor(Floor::Empty);
-                expand_from.push((x, y));
-            });
-
-            // Shuffle queue
-            expand_from.shuffle(&mut rng);
+            expand_from.append(&mut Level::filtered_neighbours(x, y, |nx, ny| {
+                cells[nx][ny] == Cell::Any
+            }));
         }
 
         // Replace remaining Any cells with walls and place monsters
         (0..SIZE).for_each(|x| {
-            (0..SIZE).for_each(|y| {
-                match cells[x][y] {
-                    Cell::Any => {
-                        cells[x][y] = Cell::Wall;
-                    }
-                    Cell::Floor(Floor::Empty) => {
-                        let mut num_neighbours = 0;
-
-                        // Up
-                        if y > 0 && matches!(cells[x][y - 1], Cell::Floor(_)) {
-                            num_neighbours += 1;
-                        }
-
-                        // Down
-                        if y + 1 < SIZE && matches!(cells[x][y + 1], Cell::Floor(_)) {
-                            num_neighbours += 1;
-                        }
-
-                        // Left
-                        if x > 0 && matches!(cells[x - 1][y], Cell::Floor(_)) {
-                            num_neighbours += 1;
-                        }
-
-                        // Right
-                        if x + 1 < SIZE && matches!(cells[x + 1][y], Cell::Floor(_)) {
-                            num_neighbours += 1;
-                        }
-
-                        assert_ne!(
-                            num_neighbours, 0,
-                            "no empty floor should be without neighbours"
-                        );
-
-                        if num_neighbours == 1 {
-                            cells[x][y] = Cell::Floor(Floor::Monster);
-                        }
-                    }
-                    _ => {}
+            (0..SIZE).for_each(|y| match cells[x][y] {
+                Cell::Any => {
+                    cells[x][y] = Cell::Wall;
                 }
+                Cell::Floor(Floor::Empty) => {
+                    let num_floor_neighbours = Level::filtered_neighbours(x, y, |nx, ny| {
+                        matches!(cells[nx][ny], Cell::Floor(_))
+                    })
+                    .len();
+
+                    assert_ne!(
+                        num_floor_neighbours, 0,
+                        "no empty floor should be without neighbours"
+                    );
+
+                    if num_floor_neighbours == 1 {
+                        cells[x][y] = Cell::Floor(Floor::Monster);
+                    }
+                }
+                _ => {}
             })
         });
         Level { cells }
+    }
+
+    fn filtered_neighbours(
+        x: usize,
+        y: usize,
+        mut f: impl FnMut(usize, usize) -> bool,
+    ) -> Vec<(usize, usize)> {
+        [
+            if y > 0 { Some((x, y - 1)) } else { None },
+            if y + 1 < SIZE { Some((x, y + 1)) } else { None },
+            if x > 0 { Some((x - 1, y)) } else { None },
+            if x + 1 < SIZE { Some((x + 1, y)) } else { None },
+        ]
+        .into_iter()
+        .flatten()
+        .filter(|(x, y)| f(*x, *y))
+        .collect::<Vec<_>>()
     }
 }
 
