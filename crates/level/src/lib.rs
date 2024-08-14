@@ -7,14 +7,14 @@ mod grid;
 use grid::{Grid, GridIterator, GridPos};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-enum CellFloor {
+pub enum CellFloor {
     Empty,
     Treasure,
     Monster,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-enum CellKind {
+pub enum CellKind {
     Wall,
     Floor(CellFloor),
 }
@@ -34,16 +34,12 @@ impl Cell {
         self.position.y
     }
 
+    pub fn kind(&self) -> &CellKind {
+        &self.kind
+    }
+
     pub fn has_wall(&self) -> bool {
         self.kind == CellKind::Wall
-    }
-
-    pub fn has_treasure(&self) -> bool {
-        self.kind == CellKind::Floor(CellFloor::Treasure)
-    }
-
-    pub fn has_monster(&self) -> bool {
-        self.kind == CellKind::Floor(CellFloor::Monster)
     }
 }
 
