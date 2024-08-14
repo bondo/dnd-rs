@@ -8,10 +8,12 @@ edition = "2021"
 
 [workspace.dependencies]
 bevy = { version = "0.14.0" }
+criterion = { version = "0.5.1" }
 log = { version = "*", features = [
     "max_level_debug",
     "release_max_level_warn",
 ] }
+rand = { version = "0.8.5" }
 
 # Enable more optimization in the release profile at the cost of compile time.
 [profile.release]
