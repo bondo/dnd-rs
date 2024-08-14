@@ -1,6 +1,7 @@
 use bevy::{prelude::*, render::camera::ScalingMode};
 
 mod level;
+use level::Level;
 
 const TEXT_COLOR: Color = Color::srgb(0.5, 0.5, 1.0);
 const TEXT_SPACING: f32 = 60.0;
@@ -8,8 +9,8 @@ const TEXT_OFFSET: f32 = 30.0;
 const TEXT_SIZE: f32 = 50.0;
 
 fn main() {
-    let level = level::Level::new();
-    println!("{}", level);
+    let level = Level::random(9, 9);
+    println!("{:?}", level);
 
     App::new()
         .add_plugins((DefaultPlugins, DungeonsAndDiagramsPlugin))
