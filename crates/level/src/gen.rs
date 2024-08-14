@@ -123,15 +123,10 @@ impl GenLevel {
         let exit = potential_exits[rng.gen_range(0..potential_exits.len())];
         grid[exit] = GenCell::Any;
 
-        let mut expand_from = vec![exit];
-        loop {
-            if expand_from.is_empty() {
-                break;
-            }
+        let mut work_queue = WorkQueue::new(rng);
+        work_queue.extend_one(exit);
 
-            // Pick a random cell to expand from
-            let p = expand_from.swap_remove(rng.gen_range(0..expand_from.len()));
-
+        while let Some(p) = work_queue.next() {
             if grid[p] != GenCell::Any {
                 continue;
             }
@@ -142,9 +137,41 @@ impl GenLevel {
 
             grid[p] = GenCell::Floor(GenFloor::Empty);
 
-            expand_from.append(&mut grid.filtered_neighbors(p, |n| n == &GenCell::Any));
+            work_queue.extend(grid.filtered_neighbors(p, |n| n == &GenCell::Any));
         }
 
         grid
+    }
+}
+
+struct WorkQueue {
+    rng: ThreadRng,
+    vec: Vec<GridPos>,
+}
+
+impl WorkQueue {
+    fn new(rng: ThreadRng) -> Self {
+        Self {
+            rng,
+            vec: Vec::new(),
+        }
+    }
+
+    fn extend(&mut self, mut ps: Vec<GridPos>) {
+        self.vec.append(&mut ps);
+    }
+
+    fn extend_one(&mut self, p: GridPos) {
+        self.vec.push(p);
+    }
+
+    fn next(&mut self) -> Option<GridPos> {
+        if self.vec.is_empty() {
+            return None;
+        }
+
+        let idx = self.rng.gen_range(0..self.vec.len());
+        let p = self.vec.swap_remove(idx);
+        Some(p)
     }
 }
