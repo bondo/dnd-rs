@@ -1,9 +1,9 @@
 [package]
-name = "dnd-rs-desktop"
+name = "dnd-rs-plugin"
 version.workspace = true
 edition.workspace = true
 
 [dependencies]
 bevy.workspace = true
 log.workspace = true
-dnd-rs-plugin = { path = "../plugin" }
+dnd-rs-level = { path = "../level" }

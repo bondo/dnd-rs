@@ -1,9 +1,16 @@
 [package]
-name = "dnd-rs-desktop"
+name = "dnd-rs-level"
 version.workspace = true
 edition.workspace = true
 
 [dependencies]
 bevy.workspace = true
 log.workspace = true
-dnd-rs-plugin = { path = "../plugin" }
+rand = "0.8.5"
+
+[dev-dependencies]
+criterion = "0.5.1"
+
+[[bench]]
+name = "bench"
+harness = false
