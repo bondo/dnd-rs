@@ -9,9 +9,6 @@ const TEXT_OFFSET: f32 = 30.0;
 const TEXT_SIZE: f32 = 50.0;
 
 fn main() {
-    let level = Level::random(9, 9);
-    println!("{:?}", level);
-
     App::new()
         .add_plugins((DefaultPlugins, DungeonsAndDiagramsPlugin))
         .run();
@@ -21,7 +18,11 @@ pub struct DungeonsAndDiagramsPlugin;
 
 impl Plugin for DungeonsAndDiagramsPlugin {
     fn build(&self, app: &mut App) {
+        let level = Level::random(9, 9);
+        println!("{:?}", level);
+
         app.insert_resource(GreetTimer(Timer::from_seconds(2.0, TimerMode::Repeating)))
+            .insert_resource(level)
             .add_systems(Startup, setup)
             .add_systems(Update, (update_people, greet_people).chain());
     }
@@ -54,7 +55,7 @@ struct Treasure;
 #[derive(Component)]
 struct Monster;
 
-fn setup(mut commands: Commands) {
+fn setup(mut commands: Commands, level: Res<Level>) {
     commands.spawn((Person, Name("Elaina Proctor".to_string())));
     commands.spawn((Person, Name("Renzo Hume".to_string())));
     commands.spawn((Person, Name("Zayna Nieves".to_string())));
@@ -67,10 +68,21 @@ fn setup(mut commands: Commands) {
     camera_2d.transform = Transform::from_xyz(100.0, 100.0, 0.0);
     commands.spawn(camera_2d);
 
-    for col in 1..10 {
+    let mut column_headers = vec![0; level.width()];
+    let mut row_headers = vec![0; level.height()];
+    level.iter().for_each(|c| {
+        if c.has_wall() {
+            column_headers[c.x()] += 1;
+            row_headers[c.y()] += 1;
+        }
+
+        // TODO: Spawn monsters and treasure
+    });
+
+    column_headers.iter().enumerate().for_each(|(i, value)| {
         commands.spawn(
             TextBundle::from_sections([TextSection::new(
-                col.to_string(),
+                value.to_string(),
                 TextStyle {
                     font_size: TEXT_SIZE,
                     color: TEXT_COLOR,
@@ -80,16 +92,16 @@ fn setup(mut commands: Commands) {
             .with_style(Style {
                 position_type: PositionType::Absolute,
                 top: Val::Px(TEXT_OFFSET),
-                left: Val::Px(TEXT_OFFSET + (col as f32) * TEXT_SPACING),
+                left: Val::Px(TEXT_OFFSET + (i as f32 + 1.0) * TEXT_SPACING),
                 ..default()
             }),
         );
-    }
+    });
 
-    for row in 1..10 {
+    row_headers.iter().enumerate().for_each(|(i, value)| {
         commands.spawn(
             TextBundle::from_sections([TextSection::new(
-                row.to_string(),
+                value.to_string(),
                 TextStyle {
                     font_size: TEXT_SIZE,
                     color: TEXT_COLOR,
@@ -98,12 +110,12 @@ fn setup(mut commands: Commands) {
             )])
             .with_style(Style {
                 position_type: PositionType::Absolute,
-                top: Val::Px(TEXT_OFFSET + (row as f32) * TEXT_SPACING),
+                top: Val::Px(TEXT_OFFSET + (i as f32 + 1.0) * TEXT_SPACING),
                 left: Val::Px(TEXT_OFFSET),
                 ..default()
             }),
         );
-    }
+    });
 }
 
 fn greet_people(time: Res<Time>, mut timer: ResMut<GreetTimer>, query: Query<&Name, With<Person>>) {

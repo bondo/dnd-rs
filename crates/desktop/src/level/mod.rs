@@ -4,28 +4,56 @@ mod gen;
 use gen::{GenCell, GenFloor, GenLevel};
 
 mod grid;
-use grid::Grid;
+use grid::{Grid, GridIterator, GridPos};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-enum Floor {
+enum CellFloor {
     Empty,
     Treasure,
     Monster,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-enum Cell {
+enum CellKind {
     Wall,
-    Floor(Floor),
+    Floor(CellFloor),
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub struct Cell {
+    kind: CellKind,
+    position: GridPos,
+}
+
+impl Cell {
+    pub fn x(&self) -> usize {
+        self.position.x
+    }
+
+    pub fn y(&self) -> usize {
+        self.position.y
+    }
+
+    pub fn has_wall(&self) -> bool {
+        self.kind == CellKind::Wall
+    }
+
+    pub fn has_treasure(&self) -> bool {
+        self.kind == CellKind::Floor(CellFloor::Treasure)
+    }
+
+    pub fn has_monster(&self) -> bool {
+        self.kind == CellKind::Floor(CellFloor::Monster)
+    }
 }
 
 impl Debug for Cell {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let c = match self {
-            Cell::Wall => '#',
-            Cell::Floor(Floor::Empty) => '.',
-            Cell::Floor(Floor::Treasure) => 'T',
-            Cell::Floor(Floor::Monster) => 'M',
+        let c = match self.kind {
+            CellKind::Wall => '#',
+            CellKind::Floor(CellFloor::Empty) => '.',
+            CellKind::Floor(CellFloor::Treasure) => 'T',
+            CellKind::Floor(CellFloor::Monster) => 'M',
         };
         write!(f, "{}", c)
     }
@@ -33,30 +61,64 @@ impl Debug for Cell {
 
 impl Debug for Level {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self.0)
+        write!(f, "{:?}", self.grid)
     }
 }
 
-pub struct Level(Grid<Cell>);
+#[derive(bevy::prelude::Resource)]
+pub struct Level {
+    grid: Grid<Cell>,
+}
+
+pub struct LevelIterator<'a> {
+    inner: GridIterator<'a, Cell>,
+}
+
+impl Iterator for LevelIterator<'_> {
+    type Item = Cell;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.inner.next()
+    }
+}
 
 impl Level {
     pub fn random(width: usize, height: usize) -> Self {
         GenLevel::random(width, height).into()
     }
+
+    pub fn iter(&self) -> LevelIterator {
+        LevelIterator {
+            inner: self.grid.iter(),
+        }
+    }
+
+    pub fn width(&self) -> usize {
+        self.grid.width()
+    }
+
+    pub fn height(&self) -> usize {
+        self.grid.height()
+    }
 }
 
 impl From<GenLevel> for Level {
-    fn from(gen_level: GenLevel) -> Self {
-        Level(gen_level.map(|cell, p| match cell {
-            GenCell::Any | GenCell::Wall => Cell::Wall,
-            GenCell::Floor(GenFloor::Treasure) => Cell::Floor(Floor::Treasure),
-            GenCell::Floor(GenFloor::Empty) => Cell::Floor(
-                match gen_level.count_neighbors(p, |n| matches!(n, GenCell::Floor(_))) {
-                    0 => panic!("Floor cell with no neighbors"),
-                    1 => Floor::Monster,
-                    _ => Floor::Empty,
+    fn from(gen: GenLevel) -> Self {
+        Level {
+            grid: gen.map(|cell, position| Cell {
+                kind: match cell {
+                    GenCell::Any | GenCell::Wall => CellKind::Wall,
+                    GenCell::Floor(GenFloor::Treasure) => CellKind::Floor(CellFloor::Treasure),
+                    GenCell::Floor(GenFloor::Empty) => CellKind::Floor(
+                        match gen.count_neighbors(position, |n| matches!(n, GenCell::Floor(_))) {
+                            0 => panic!("Floor cell with no neighbors"),
+                            1 => CellFloor::Monster,
+                            _ => CellFloor::Empty,
+                        },
+                    ),
                 },
-            ),
-        }))
+                position,
+            }),
+        }
     }
 }

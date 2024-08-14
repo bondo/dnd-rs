@@ -1,7 +1,7 @@
 use rand::prelude::*;
 use std::fmt::Debug;
 
-use super::grid::Grid;
+use super::grid::{Grid, GridPos};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(super) enum GenFloor {
@@ -44,24 +44,25 @@ impl GenLevel {
         // Fill treasure room with floor
         (treasure_room_x..treasure_room_x + 3).for_each(|x| {
             (treasure_room_y..treasure_room_y + 3).for_each(|y| {
-                grid[(x, y)] = GenCell::Floor(GenFloor::Empty);
+                grid[(x, y).into()] = GenCell::Floor(GenFloor::Empty);
             });
         });
 
         let treasure_x = rng.gen::<usize>() % 3 + treasure_room_x;
         let treasure_y = rng.gen::<usize>() % 3 + treasure_room_y;
-        grid[(treasure_x, treasure_y)] = GenCell::Floor(GenFloor::Treasure);
+        grid[(treasure_x, treasure_y).into()] = GenCell::Floor(GenFloor::Treasure);
 
-        let mut potential_exits: Vec<(usize, usize)> = Vec::new();
+        let mut potential_exits: Vec<GridPos> = Vec::new();
 
         // Fill in walls around treasure room
 
         // Left side
         if treasure_room_x > 0 {
             (treasure_room_y..treasure_room_y + 3).for_each(|y| {
-                grid[(treasure_room_x - 1, y)] = GenCell::Wall;
+                let pos = (treasure_room_x - 1, y).into();
+                grid[pos] = GenCell::Wall;
                 if treasure_room_x > 1 {
-                    potential_exits.push((treasure_room_x - 1, y));
+                    potential_exits.push(pos);
                 }
             })
         }
@@ -69,9 +70,10 @@ impl GenLevel {
         // Right side
         if treasure_room_x + 3 < width {
             (treasure_room_y..treasure_room_y + 3).for_each(|y| {
-                grid[(treasure_room_x + 3, y)] = GenCell::Wall;
+                let pos = (treasure_room_x + 3, y).into();
+                grid[pos] = GenCell::Wall;
                 if treasure_room_x + 4 < width {
-                    potential_exits.push((treasure_room_x + 3, y));
+                    potential_exits.push(pos);
                 }
             })
         }
@@ -79,9 +81,10 @@ impl GenLevel {
         // Top side
         if treasure_room_y > 0 {
             (treasure_room_x..treasure_room_x + 3).for_each(|x| {
-                grid[(x, treasure_room_y - 1)] = GenCell::Wall;
+                let pos = (x, treasure_room_y - 1).into();
+                grid[pos] = GenCell::Wall;
                 if treasure_room_y > 1 {
-                    potential_exits.push((x, treasure_room_y - 1));
+                    potential_exits.push(pos);
                 }
             })
         }
@@ -89,37 +92,38 @@ impl GenLevel {
         // Bottom side
         if treasure_room_y + 3 < height {
             (treasure_room_x..treasure_room_x + 3).for_each(|x| {
-                grid[(x, treasure_room_y + 3)] = GenCell::Wall;
+                let pos = (x, treasure_room_y + 3).into();
+                grid[pos] = GenCell::Wall;
                 if treasure_room_y + 4 < height {
-                    potential_exits.push((x, treasure_room_y + 3));
+                    potential_exits.push(pos);
                 }
             })
         }
 
         // Top left corner
         if treasure_room_x > 0 && treasure_room_y > 0 {
-            grid[(treasure_room_x - 1, treasure_room_y - 1)] = GenCell::Wall;
+            grid[(treasure_room_x - 1, treasure_room_y - 1).into()] = GenCell::Wall;
         }
 
         // Top right corner
         if treasure_room_x + 3 < width && treasure_room_y > 0 {
-            grid[(treasure_room_x + 3, treasure_room_y - 1)] = GenCell::Wall;
+            grid[(treasure_room_x + 3, treasure_room_y - 1).into()] = GenCell::Wall;
         }
 
         // Bottom left corner
         if treasure_room_x > 0 && treasure_room_y + 3 < height {
-            grid[(treasure_room_x - 1, treasure_room_y + 3)] = GenCell::Wall;
+            grid[(treasure_room_x - 1, treasure_room_y + 3).into()] = GenCell::Wall;
         }
 
         // Bottom right corner
         if treasure_room_x + 3 < width && treasure_room_y + 3 < height {
-            grid[(treasure_room_x + 3, treasure_room_y + 3)] = GenCell::Wall;
+            grid[(treasure_room_x + 3, treasure_room_y + 3).into()] = GenCell::Wall;
         }
 
-        let (exit_x, exit_y) = potential_exits[rng.gen_range(0..potential_exits.len())];
-        grid[(exit_x, exit_y)] = GenCell::Any;
+        let exit = potential_exits[rng.gen_range(0..potential_exits.len())];
+        grid[exit] = GenCell::Any;
 
-        let mut expand_from = vec![(exit_x, exit_y)];
+        let mut expand_from = vec![exit];
         loop {
             if expand_from.is_empty() {
                 break;
