@@ -7,7 +7,7 @@ version = "0.1.0"
 edition = "2021"
 
 [workspace.dependencies]
-bevy = { version = "0.14.0" }
+bevy = { version = "0.14.1" }
 criterion = { version = "0.5.1" }
 log = { version = "*", features = [
     "max_level_debug",

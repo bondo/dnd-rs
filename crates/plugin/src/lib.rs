@@ -2,16 +2,18 @@ use bevy::{prelude::*, render::camera::ScalingMode};
 
 use dnd_rs_level::{CellFloor, CellKind, Level};
 
-const TEXT_COLOR: Color = Color::srgb(0.5, 0.5, 1.0);
-const TEXT_SPACING: f32 = 60.0;
-const TEXT_OFFSET: f32 = 30.0;
-const TEXT_SIZE: f32 = 50.0;
+const UNIT_SIZE: f32 = 100.0;
 
-const WALL_COLOR: Color = Color::srgb(0.5, 0.5, 0.5);
+const TEXT_COLOR: Color = Color::srgb(0.5, 0.5, 1.0);
+const TEXT_SIZE: f32 = UNIT_SIZE;
+
+const WALL_COLOR: Color = Color::srgb(0.0, 0.0, 1.0);
 const MONSTER_COLOR: Color = Color::srgb(1.0, 0.0, 0.0);
 const TREASURE_COLOR: Color = Color::srgb(1.0, 1.0, 0.0);
+const FLOOR_COLOR: Color = Color::srgb(0.5, 0.5, 0.5);
+// const BORDER_COLOR: Color = Color::srgb(0.0, 0.0, 0.0);
 
-const CELL_SIZE: Vec2 = Vec2::new(1.0, 1.0);
+const CELL_SIZE: Vec2 = Vec2::new(UNIT_SIZE, UNIT_SIZE);
 
 pub struct DungeonsAndDiagramsPlugin;
 
@@ -60,16 +62,41 @@ struct TreasureBundle {
 }
 
 fn setup(mut commands: Commands, level: Res<Level>) {
-    let padding_left = 1.5;
+    let padding_left = 2.0;
+    let padding_right = 1.0;
     let padding_top = 2.0;
+    let padding_bottom = 1.0;
 
-    let width = level.width() as f32 + padding_left * 2.0;
-    let height = level.height() as f32 + padding_top * 2.0;
+    let width = (level.width() as f32 + padding_left + padding_right) * UNIT_SIZE;
+    let height = (level.height() as f32 + padding_top * padding_bottom) * UNIT_SIZE;
 
     let mut camera_2d = Camera2dBundle::default();
-    camera_2d.projection.scaling_mode = ScalingMode::Fixed { width, height };
+    camera_2d.projection.scaling_mode = ScalingMode::AutoMin {
+        min_width: width,
+        min_height: height,
+    };
     camera_2d.transform = Transform::from_xyz(width / 2.0, height / 2.0, 0.0);
     commands.spawn(camera_2d);
+
+    // Paint floor as background
+    commands.spawn(SpriteBundle {
+        transform: Transform {
+            translation: Vec3::new(width / 2.0, (height - UNIT_SIZE) / 2.0, -1.0),
+            scale: Vec3::new(
+                level.width() as f32 * UNIT_SIZE,
+                level.height() as f32 * UNIT_SIZE,
+                0.0,
+            ),
+            ..Default::default()
+        },
+        sprite: Sprite {
+            color: FLOOR_COLOR,
+            ..Default::default()
+        },
+        ..Default::default()
+    });
+
+    // TODO: Paint border on tiles at z = 1.0
 
     let mut column_headers = vec![0; level.width()];
     let mut row_headers = vec![0; level.height()];
@@ -81,8 +108,8 @@ fn setup(mut commands: Commands, level: Res<Level>) {
 
         let transform = Transform {
             translation: Vec3::new(
-                c.x() as f32 + padding_left,
-                height - c.y() as f32 - padding_top,
+                (c.x() as f32 + padding_left) * UNIT_SIZE,
+                height - (c.y() as f32 + padding_top) * UNIT_SIZE,
                 0.0,
             ),
             scale: CELL_SIZE.extend(1.0),
@@ -142,60 +169,33 @@ fn setup(mut commands: Commands, level: Res<Level>) {
         }
     });
 
+    let text_style = TextStyle {
+        font_size: TEXT_SIZE,
+        color: TEXT_COLOR,
+        ..Default::default()
+    };
+
     column_headers.iter().enumerate().for_each(|(i, value)| {
-        commands.spawn(
-            TextBundle::from_sections([TextSection::new(
-                value.to_string(),
-                TextStyle {
-                    font_size: TEXT_SIZE,
-                    color: TEXT_COLOR,
-                    ..default()
-                },
-            )])
-            .with_style(Style {
-                position_type: PositionType::Absolute,
-                top: Val::Px(TEXT_OFFSET),
-                left: Val::Px(TEXT_OFFSET + (i as f32 + 1.0) * TEXT_SPACING),
-                ..default()
-            }),
-        );
+        commands.spawn(Text2dBundle {
+            text: Text::from_section(value.to_string(), text_style.clone()),
+            transform: Transform::from_xyz(
+                (i as f32 + padding_left) * UNIT_SIZE,
+                height - UNIT_SIZE,
+                100.0,
+            ),
+            ..Default::default()
+        });
     });
 
     row_headers.iter().enumerate().for_each(|(i, value)| {
-        commands.spawn(
-            TextBundle::from_sections([TextSection::new(
-                value.to_string(),
-                TextStyle {
-                    font_size: TEXT_SIZE,
-                    color: TEXT_COLOR,
-                    ..default()
-                },
-            )])
-            .with_style(Style {
-                position_type: PositionType::Absolute,
-                top: Val::Px(TEXT_OFFSET + (i as f32 + 1.0) * TEXT_SPACING),
-                left: Val::Px(TEXT_OFFSET),
-                ..default()
-            }),
-        );
+        commands.spawn(Text2dBundle {
+            text: Text::from_section(value.to_string(), text_style.clone()),
+            transform: Transform::from_xyz(
+                UNIT_SIZE,
+                height - (i as f32 + padding_top) * UNIT_SIZE,
+                100.0,
+            ),
+            ..Default::default()
+        });
     });
 }
-
-// fn greet_people(time: Res<Time>, mut timer: ResMut<GreetTimer>, query: Query<&Name, With<Person>>) {
-//     // update our timer with the time elapsed since the last update
-//     // if that caused the timer to finish, we say hello to everyone
-//     if timer.0.tick(time.delta()).just_finished() {
-//         for name in &query {
-//             println!("hello {}!", name.0);
-//         }
-//     }
-// }
-
-// fn update_people(mut query: Query<&mut Name, With<Person>>) {
-//     for mut name in &mut query {
-//         if name.0 == "Elaina Proctor" {
-//             name.0 = "Elaina Hume".to_string();
-//             break; // We don’t need to change any other names
-//         }
-//     }
-// }
