@@ -7,3 +7,7 @@ edition.workspace = true
 bevy.workspace = true
 log.workspace = true
 dnd-rs-plugin = { path = "../plugin" }
+
+[[bin]]
+name = "dnd"
+path = "src/main.rs"
