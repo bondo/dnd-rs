@@ -3,17 +3,24 @@ use bevy::{prelude::*, render::camera::ScalingMode};
 use dnd_rs_level::{CellFloor, CellKind, Level};
 
 const UNIT_SIZE: f32 = 100.0;
+const OFFSET: f32 = UNIT_SIZE / 2.0;
 
 const TEXT_COLOR: Color = Color::srgb(0.5, 0.5, 1.0);
-const TEXT_SIZE: f32 = UNIT_SIZE;
+const TEXT_SIZE: f32 = UNIT_SIZE * 0.75;
+
+const PADDING_TOP: f32 = 0.0;
+const PADDING_LEFT: f32 = 0.0;
+const PADDING_BOTTOM: f32 = UNIT_SIZE * 0.3;
+const PADDING_RIGHT: f32 = UNIT_SIZE * 0.3;
 
 const WALL_COLOR: Color = Color::srgb(0.0, 0.0, 1.0);
 const MONSTER_COLOR: Color = Color::srgb(1.0, 0.0, 0.0);
 const TREASURE_COLOR: Color = Color::srgb(1.0, 1.0, 0.0);
-const FLOOR_COLOR: Color = Color::srgb(0.5, 0.5, 0.5);
-// const BORDER_COLOR: Color = Color::srgb(0.0, 0.0, 0.0);
+const CELL_COLOR: Color = Color::srgb(0.5, 0.5, 0.5);
+const BORDER_COLOR: Color = Color::srgb(0.0, 0.0, 0.0);
 
-const CELL_SIZE: Vec2 = Vec2::new(UNIT_SIZE, UNIT_SIZE);
+const BORDER_WIDTH: f32 = UNIT_SIZE * 0.05;
+const CELL_SIZE: Vec2 = Vec2::new(UNIT_SIZE - BORDER_WIDTH, UNIT_SIZE - BORDER_WIDTH);
 
 pub struct DungeonsAndDiagramsPlugin;
 
@@ -62,13 +69,8 @@ struct TreasureBundle {
 }
 
 fn setup(mut commands: Commands, level: Res<Level>) {
-    let padding_left = 2.0;
-    let padding_right = 1.0;
-    let padding_top = 2.0;
-    let padding_bottom = 1.0;
-
-    let width = (level.width() as f32 + padding_left + padding_right) * UNIT_SIZE;
-    let height = (level.height() as f32 + padding_top * padding_bottom) * UNIT_SIZE;
+    let width = (level.width() as f32 + 1.0) * UNIT_SIZE + PADDING_LEFT + PADDING_RIGHT;
+    let height = (level.height() as f32 + 1.0) * UNIT_SIZE + PADDING_TOP + PADDING_BOTTOM;
 
     let mut camera_2d = Camera2dBundle::default();
     camera_2d.projection.scaling_mode = ScalingMode::AutoMin {
@@ -78,25 +80,27 @@ fn setup(mut commands: Commands, level: Res<Level>) {
     camera_2d.transform = Transform::from_xyz(width / 2.0, height / 2.0, 0.0);
     commands.spawn(camera_2d);
 
-    // Paint floor as background
+    // Paint border as background
     commands.spawn(SpriteBundle {
         transform: Transform {
-            translation: Vec3::new(width / 2.0, (height - UNIT_SIZE) / 2.0, -1.0),
+            translation: Vec3::new(
+                (width - PADDING_LEFT - PADDING_RIGHT) / 2.0 + OFFSET + PADDING_LEFT,
+                (height - PADDING_TOP - PADDING_BOTTOM) / 2.0 - OFFSET + PADDING_BOTTOM,
+                -1.0,
+            ),
             scale: Vec3::new(
-                level.width() as f32 * UNIT_SIZE,
-                level.height() as f32 * UNIT_SIZE,
+                level.width() as f32 * UNIT_SIZE + BORDER_WIDTH,
+                level.height() as f32 * UNIT_SIZE + BORDER_WIDTH,
                 0.0,
             ),
             ..Default::default()
         },
         sprite: Sprite {
-            color: FLOOR_COLOR,
+            color: BORDER_COLOR,
             ..Default::default()
         },
         ..Default::default()
     });
-
-    // TODO: Paint border on tiles at z = 1.0
 
     let mut column_headers = vec![0; level.width()];
     let mut row_headers = vec![0; level.height()];
@@ -108,8 +112,8 @@ fn setup(mut commands: Commands, level: Res<Level>) {
 
         let transform = Transform {
             translation: Vec3::new(
-                (c.x() as f32 + padding_left) * UNIT_SIZE,
-                height - (c.y() as f32 + padding_top) * UNIT_SIZE,
+                (c.x() as f32 + 1.0) * UNIT_SIZE + OFFSET + PADDING_LEFT,
+                height - ((c.y() as f32 + 1.0) * UNIT_SIZE + OFFSET + PADDING_TOP),
                 0.0,
             ),
             scale: CELL_SIZE.extend(1.0),
@@ -132,9 +136,19 @@ fn setup(mut commands: Commands, level: Res<Level>) {
                 ));
             }
             CellKind::Floor(CellFloor::Empty) => {
-                commands.spawn(FloorBundle {
-                    ..Default::default()
-                });
+                commands.spawn((
+                    FloorBundle {
+                        ..Default::default()
+                    },
+                    SpriteBundle {
+                        transform,
+                        sprite: Sprite {
+                            color: CELL_COLOR,
+                            ..Default::default()
+                        },
+                        ..Default::default()
+                    },
+                ));
             }
             CellKind::Floor(CellFloor::Treasure) => {
                 commands.spawn((
@@ -179,8 +193,8 @@ fn setup(mut commands: Commands, level: Res<Level>) {
         commands.spawn(Text2dBundle {
             text: Text::from_section(value.to_string(), text_style.clone()),
             transform: Transform::from_xyz(
-                (i as f32 + padding_left) * UNIT_SIZE,
-                height - UNIT_SIZE,
+                (i as f32 + 1.0) * UNIT_SIZE + OFFSET + PADDING_LEFT,
+                height - (OFFSET + PADDING_TOP),
                 100.0,
             ),
             ..Default::default()
@@ -191,8 +205,8 @@ fn setup(mut commands: Commands, level: Res<Level>) {
         commands.spawn(Text2dBundle {
             text: Text::from_section(value.to_string(), text_style.clone()),
             transform: Transform::from_xyz(
-                UNIT_SIZE,
-                height - (i as f32 + padding_top) * UNIT_SIZE,
+                OFFSET + PADDING_LEFT,
+                height - ((i as f32 + 1.0) * UNIT_SIZE + OFFSET + PADDING_TOP),
                 100.0,
             ),
             ..Default::default()
