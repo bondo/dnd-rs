@@ -1,0 +1,77 @@
+on: push
+
+name: Build And Release
+
+jobs:
+  artifacts:
+    name: Build for ${{ matrix.platform.os_name }}
+    runs-on: ${{ matrix.platform.runner }}
+    strategy:
+      matrix:
+        platform:
+          - os_name: Linux-x86_64
+            runner: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+            bin: dnd
+            archive_cmd: tar -czf
+            archive_ext: tar.gz
+          - os_name: Windows-x86_64
+            runner: windows-latest
+            target: x86_64-pc-windows-msvc
+            bin: dnd.exe
+            archive_cmd: 7z a -tzip
+            archive_ext: zip
+          - os_name: MacOS-x86_64
+            runner: macos-latest
+            target: x86_64-apple-darwin
+            bin: dnd
+            archive_cmd: tar -czf
+            archive_ext: tar.gz
+          - os_name: MacOS-aarch64
+            runner: macos-latest
+            target: aarch64-apple-darwin
+            bin: dnd
+            archive_cmd: tar -czf
+            archive_ext: tar.gz
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Set up Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: 1.80.0
+          target: ${{ matrix.platform.target }}
+      - name: Build
+        run: cargo build --release --target ${{ matrix.platform.target }}
+
+      - name: Archive
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          mv target/${{ matrix.platform.target }}/release/${{ matrix.platform.bin }} .
+          ${{ matrix.platform.archive_cmd }} dnd-${{matrix.platform.target}}.${{ matrix.platform.archive_ext }} ${{ matrix.platform.bin }}
+      - name: Upload artifact
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: actions/upload-artifact@v4
+        with:
+          name: dnd-${{matrix.platform.target}}.${{ matrix.platform.archive_ext }}
+          path: dnd-${{matrix.platform.target}}.${{ matrix.platform.archive_ext }}
+
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: artifacts
+    permissions:
+      contents: write
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: dnd-*
+          merge-multiple: true
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dnd-*
+          fail_on_unmatched_files: true
+          generate_release_notes: true
