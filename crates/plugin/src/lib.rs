@@ -1,4 +1,4 @@
-use bevy::{prelude::*, render::camera::ScalingMode};
+use bevy::{prelude::*, render::camera::ScalingMode, window::PrimaryWindow};
 
 use dnd_rs_level::{CellFloor, CellKind, Level};
 
@@ -29,12 +29,20 @@ impl Plugin for DungeonsAndDiagramsPlugin {
         let level = Level::random(9, 9);
         println!("{:?}", level);
 
-        app.insert_resource(level).add_systems(Startup, setup);
+        app.insert_resource(level)
+            .add_systems(Startup, setup)
+            .add_systems(Update, handle_click);
     }
 }
 
+#[derive(Component)]
+struct MainCamera;
+
 #[derive(Component, Default)]
 struct Cell;
+
+#[derive(Component, Default)]
+struct Floor;
 
 #[derive(Component, Default)]
 struct Wall;
@@ -48,12 +56,7 @@ struct Monster;
 #[derive(Bundle, Default)]
 struct FloorBundle {
     cell: Cell,
-}
-
-#[derive(Bundle, Default)]
-struct WallBundle {
-    cell: Cell,
-    wall: Wall,
+    floor: Floor,
 }
 
 #[derive(Bundle, Default)]
@@ -78,7 +81,7 @@ fn setup(mut commands: Commands, level: Res<Level>) {
         min_height: height,
     };
     camera_2d.transform = Transform::from_xyz(width / 2.0, height / 2.0, 0.0);
-    commands.spawn(camera_2d);
+    commands.spawn((camera_2d, MainCamera));
 
     // Paint border as background
     commands.spawn(SpriteBundle {
@@ -120,22 +123,7 @@ fn setup(mut commands: Commands, level: Res<Level>) {
             ..Default::default()
         };
         match c.kind() {
-            CellKind::Wall => {
-                commands.spawn((
-                    WallBundle {
-                        ..Default::default()
-                    },
-                    SpriteBundle {
-                        transform,
-                        sprite: Sprite {
-                            color: WALL_COLOR,
-                            ..Default::default()
-                        },
-                        ..Default::default()
-                    },
-                ));
-            }
-            CellKind::Floor(CellFloor::Empty) => {
+            CellKind::Wall | CellKind::Floor(CellFloor::Empty) => {
                 commands.spawn((
                     FloorBundle {
                         ..Default::default()
@@ -212,4 +200,65 @@ fn setup(mut commands: Commands, level: Res<Level>) {
             ..Default::default()
         });
     });
+}
+
+fn handle_click(
+    mut commands: Commands,
+    q_wall: Query<(Entity, &Transform), With<Wall>>,
+    q_floor: Query<(&Floor, &Transform), Without<Wall>>,
+    mouse_button_input: Res<ButtonInput<MouseButton>>,
+    q_windows: Query<&Window, With<PrimaryWindow>>,
+    q_camera: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
+) {
+    if mouse_button_input.just_pressed(MouseButton::Left) {
+        let (camera, camera_transform) = q_camera.single();
+        let window = q_windows.single();
+
+        // Get cursor position in world coordinates
+        let Some(cursor_position) = window.cursor_position() else {
+            // Cursor is not in primary window
+            return;
+        };
+
+        // Translate cursor position to world coordinates
+        let Some(cursor_position) = camera.viewport_to_world_2d(camera_transform, cursor_position)
+        else {
+            // Cursor is not in camera view
+            return;
+        };
+
+        // If a wall is clicked, remove it
+        for (entity, transform) in q_wall.iter() {
+            let cell_position = transform.translation.xy();
+            if cell_position.distance(cursor_position) < (UNIT_SIZE - BORDER_WIDTH) / 2.0 {
+                println!("Clicked on wall");
+                commands.entity(entity).despawn();
+                return;
+            }
+        }
+
+        // If an empty cell is clicked, add a wall
+        for (_floor, transform) in q_floor.iter() {
+            let cell_center = transform.translation.xy();
+            if cell_center.distance(cursor_position) < (UNIT_SIZE - BORDER_WIDTH) / 2.0 {
+                println!("Clicked on cell");
+                commands.spawn((
+                    Wall,
+                    SpriteBundle {
+                        transform: Transform {
+                            translation: cell_center.extend(1.0),
+                            scale: CELL_SIZE.extend(1.0),
+                            ..Default::default()
+                        },
+                        sprite: Sprite {
+                            color: WALL_COLOR,
+                            ..Default::default()
+                        },
+                        ..Default::default()
+                    },
+                ));
+                return;
+            }
+        }
+    }
 }
