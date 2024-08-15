@@ -29,6 +29,7 @@ const CELL_SIZE: Vec2 = Vec2::new(UNIT_SIZE - BORDER_WIDTH, UNIT_SIZE - BORDER_W
 // - Spawn question mark on right click
 // - Add indicator when row/column wall count matches
 // - Add indicator when row/column has too many walls
+// - Add indicator when monster is in a blind alley
 // - Handle level completed
 // - Add interface settings to change level size
 // - Add Android support
