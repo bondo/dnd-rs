@@ -1,1 +1,1 @@
-# dnd-rs
+# Rust implementation of Dungeons and Diagrams
