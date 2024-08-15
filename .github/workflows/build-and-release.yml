@@ -21,18 +21,18 @@ jobs:
             bin: dnd-rs-desktop.exe
             archive_cmd: 7z a -tzip
             archive_ext: zip
-          - os_name: MacOS-x86_64
-            runner: macos-latest
-            target: x86_64-apple-darwin
-            bin: dnd-rs-desktop
-            archive_cmd: tar -czf
-            archive_ext: tar.gz
-          - os_name: MacOS-aarch64
-            runner: macos-latest
-            target: aarch64-apple-darwin
-            bin: dnd-rs-desktop
-            archive_cmd: tar -czf
-            archive_ext: tar.gz
+          # - os_name: MacOS-x86_64
+          #   runner: macos-latest
+          #   target: x86_64-apple-darwin
+          #   bin: dnd-rs-desktop
+          #   archive_cmd: tar -czf
+          #   archive_ext: tar.gz
+          # - os_name: MacOS-aarch64
+          #   runner: macos-latest
+          #   target: aarch64-apple-darwin
+          #   bin: dnd-rs-desktop
+          #   archive_cmd: tar -czf
+          #   archive_ext: tar.gz
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
