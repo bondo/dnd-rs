@@ -12,25 +12,25 @@ jobs:
           - os_name: Linux-x86_64
             runner: ubuntu-latest
             target: x86_64-unknown-linux-musl
-            bin: dnd
+            bin: dnd-rs-desktop
             archive_cmd: tar -czf
             archive_ext: tar.gz
           - os_name: Windows-x86_64
             runner: windows-latest
             target: x86_64-pc-windows-msvc
-            bin: dnd.exe
+            bin: dnd-rs-desktop.exe
             archive_cmd: 7z a -tzip
             archive_ext: zip
           - os_name: MacOS-x86_64
             runner: macos-latest
             target: x86_64-apple-darwin
-            bin: dnd
+            bin: dnd-rs-desktop
             archive_cmd: tar -czf
             archive_ext: tar.gz
           - os_name: MacOS-aarch64
             runner: macos-latest
             target: aarch64-apple-darwin
-            bin: dnd
+            bin: dnd-rs-desktop
             archive_cmd: tar -czf
             archive_ext: tar.gz
     steps:
