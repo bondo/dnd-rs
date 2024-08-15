@@ -10,6 +10,7 @@ const OFFSET: f32 = UNIT_SIZE / 2.0;
 
 const TEXT_COLOR: Color = Color::srgb(0.5, 0.5, 1.0);
 const TEXT_SIZE: f32 = UNIT_SIZE * 0.75;
+const QUESTION_MARK_COLOR: Color = Color::srgb(1.0, 0.5, 0.0);
 
 const PADDING_TOP: f32 = 0.0;
 const PADDING_LEFT: f32 = 0.0;
@@ -26,7 +27,6 @@ const BORDER_WIDTH: f32 = UNIT_SIZE * 0.05;
 const CELL_SIZE: Vec2 = Vec2::new(UNIT_SIZE - BORDER_WIDTH, UNIT_SIZE - BORDER_WIDTH);
 
 // TODO:
-// - Spawn question mark on right click
 // - Add indicator when row/column wall count matches
 // - Add indicator when row/column has too many walls
 // - Add indicator when monster is in a blind alley
@@ -39,14 +39,17 @@ pub struct DungeonsAndDiagramsPlugin;
 
 impl Plugin for DungeonsAndDiagramsPlugin {
     fn build(&self, app: &mut App) {
-        let level = Level::random(7, 7);
+        let level = Level::random(8, 8);
         // println!("{:?}", level);
 
         app.insert_resource(level)
             .add_systems(Startup, setup)
             .add_systems(
                 Update,
-                handle_click.run_if(input_just_pressed(MouseButton::Left)),
+                (
+                    handle_click.run_if(input_just_pressed(MouseButton::Left)),
+                    handle_right_click.run_if(input_just_pressed(MouseButton::Right)),
+                ),
             );
     }
 }
@@ -68,6 +71,9 @@ struct Treasure;
 
 #[derive(Component, Default)]
 struct Monster;
+
+#[derive(Component, Default)]
+struct QuestionMark;
 
 #[derive(Bundle, Default)]
 struct FloorBundle {
@@ -225,18 +231,7 @@ fn handle_click(
     q_windows: Query<&Window, With<PrimaryWindow>>,
     q_camera: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
 ) {
-    let (camera, camera_transform) = q_camera.single();
-    let window = q_windows.single();
-
-    // Get cursor position in world coordinates
-    let Some(cursor_position) = window.cursor_position() else {
-        // Cursor is not in primary window
-        return;
-    };
-
-    // Translate cursor position to world coordinates
-    let Some(cursor_position) = camera.viewport_to_world_2d(camera_transform, cursor_position)
-    else {
+    let Some(cursor_position) = get_cursor_position_in_world(q_windows, q_camera) else {
         // Cursor is not in camera view
         return;
     };
@@ -272,6 +267,52 @@ fn handle_click(
     }
 }
 
+fn handle_right_click(
+    mut commands: Commands,
+    q_question_marks: Query<(Entity, &Transform), With<QuestionMark>>,
+    q_cells: Query<(&Cell, &Transform), Without<QuestionMark>>,
+    q_windows: Query<&Window, With<PrimaryWindow>>,
+    q_camera: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
+) {
+    let Some(cursor_position) = get_cursor_position_in_world(q_windows, q_camera) else {
+        // Cursor is not in camera view
+        return;
+    };
+
+    // If a question mark is clicked, remove it
+    for (entity, transform) in q_question_marks.iter() {
+        if is_cursor_in_cell(cursor_position, transform) {
+            commands.entity(entity).despawn();
+            return;
+        }
+    }
+
+    // If a cell is clicked, add a question mark
+    for (_cell, transform) in q_cells.iter() {
+        if is_cursor_in_cell(cursor_position, transform) {
+            commands.spawn((
+                QuestionMark,
+                Text2dBundle {
+                    text: Text::from_section(
+                        "?",
+                        TextStyle {
+                            font_size: TEXT_SIZE,
+                            color: QUESTION_MARK_COLOR,
+                            ..Default::default()
+                        },
+                    ),
+                    transform: Transform {
+                        translation: transform.translation.with_z(2.0),
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                },
+            ));
+            return;
+        }
+    }
+}
+
 fn is_cursor_in_cell(cursor: Vec2, cell: &Transform) -> bool {
     let center = cell.translation.xy();
     let half_size = CELL_SIZE / 2.0;
@@ -283,4 +324,13 @@ fn is_cursor_in_cell(cursor: Vec2, cell: &Transform) -> bool {
         && cursor.x <= top_right.x
         && cursor.y >= bottom_left.y
         && cursor.y <= top_right.y
+}
+
+fn get_cursor_position_in_world(
+    q_windows: Query<&Window, With<PrimaryWindow>>,
+    q_camera: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
+) -> Option<Vec2> {
+    let (camera, camera_transform) = q_camera.single();
+    let window = q_windows.single();
+    camera.viewport_to_world_2d(camera_transform, window.cursor_position()?)
 }
