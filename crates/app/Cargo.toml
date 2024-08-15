@@ -1,5 +1,5 @@
 [package]
-name = "dnd-rs-desktop"
+name = "dnd-rs-app"
 version.workspace = true
 edition.workspace = true
 
