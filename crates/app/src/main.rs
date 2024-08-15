@@ -1,3 +1,5 @@
+#![windows_subsystem = "windows"]
+
 use bevy::prelude::*;
 use dnd_rs_plugin::DungeonsAndDiagramsPlugin;
 
