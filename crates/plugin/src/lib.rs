@@ -1,4 +1,7 @@
-use bevy::{prelude::*, render::camera::ScalingMode, window::PrimaryWindow};
+use bevy::{
+    input::common_conditions::input_just_pressed, prelude::*, render::camera::ScalingMode,
+    window::PrimaryWindow,
+};
 
 use dnd_rs_level::{CellFloor, CellKind, Level};
 
@@ -22,16 +25,28 @@ const BORDER_COLOR: Color = Color::srgb(0.0, 0.0, 0.0);
 const BORDER_WIDTH: f32 = UNIT_SIZE * 0.05;
 const CELL_SIZE: Vec2 = Vec2::new(UNIT_SIZE - BORDER_WIDTH, UNIT_SIZE - BORDER_WIDTH);
 
+// TODO:
+// - Spawn question mark on right click
+// - Add indicator when row/column wall count matches
+// - Add indicator when row/column has too many walls
+// - Handle level completed
+// - Add interface settings to change level size
+// - Add Android support
+// - Add Web support
+
 pub struct DungeonsAndDiagramsPlugin;
 
 impl Plugin for DungeonsAndDiagramsPlugin {
     fn build(&self, app: &mut App) {
-        let level = Level::random(9, 9);
-        println!("{:?}", level);
+        let level = Level::random(7, 7);
+        // println!("{:?}", level);
 
         app.insert_resource(level)
             .add_systems(Startup, setup)
-            .add_systems(Update, handle_click);
+            .add_systems(
+                Update,
+                handle_click.run_if(input_just_pressed(MouseButton::Left)),
+            );
     }
 }
 
@@ -204,61 +219,67 @@ fn setup(mut commands: Commands, level: Res<Level>) {
 
 fn handle_click(
     mut commands: Commands,
-    q_wall: Query<(Entity, &Transform), With<Wall>>,
-    q_floor: Query<(&Floor, &Transform), Without<Wall>>,
-    mouse_button_input: Res<ButtonInput<MouseButton>>,
+    q_walls: Query<(Entity, &Transform), With<Wall>>,
+    q_empty_cells: Query<(&Floor, &Transform), Without<Wall>>,
     q_windows: Query<&Window, With<PrimaryWindow>>,
     q_camera: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
 ) {
-    if mouse_button_input.just_pressed(MouseButton::Left) {
-        let (camera, camera_transform) = q_camera.single();
-        let window = q_windows.single();
+    let (camera, camera_transform) = q_camera.single();
+    let window = q_windows.single();
 
-        // Get cursor position in world coordinates
-        let Some(cursor_position) = window.cursor_position() else {
-            // Cursor is not in primary window
+    // Get cursor position in world coordinates
+    let Some(cursor_position) = window.cursor_position() else {
+        // Cursor is not in primary window
+        return;
+    };
+
+    // Translate cursor position to world coordinates
+    let Some(cursor_position) = camera.viewport_to_world_2d(camera_transform, cursor_position)
+    else {
+        // Cursor is not in camera view
+        return;
+    };
+
+    // If a wall is clicked, remove it
+    for (entity, transform) in q_walls.iter() {
+        if is_cursor_in_cell(cursor_position, transform) {
+            commands.entity(entity).despawn();
             return;
-        };
-
-        // Translate cursor position to world coordinates
-        let Some(cursor_position) = camera.viewport_to_world_2d(camera_transform, cursor_position)
-        else {
-            // Cursor is not in camera view
-            return;
-        };
-
-        // If a wall is clicked, remove it
-        for (entity, transform) in q_wall.iter() {
-            let cell_position = transform.translation.xy();
-            if cell_position.distance(cursor_position) < (UNIT_SIZE - BORDER_WIDTH) / 2.0 {
-                println!("Clicked on wall");
-                commands.entity(entity).despawn();
-                return;
-            }
-        }
-
-        // If an empty cell is clicked, add a wall
-        for (_floor, transform) in q_floor.iter() {
-            let cell_center = transform.translation.xy();
-            if cell_center.distance(cursor_position) < (UNIT_SIZE - BORDER_WIDTH) / 2.0 {
-                println!("Clicked on cell");
-                commands.spawn((
-                    Wall,
-                    SpriteBundle {
-                        transform: Transform {
-                            translation: cell_center.extend(1.0),
-                            scale: CELL_SIZE.extend(1.0),
-                            ..Default::default()
-                        },
-                        sprite: Sprite {
-                            color: WALL_COLOR,
-                            ..Default::default()
-                        },
-                        ..Default::default()
-                    },
-                ));
-                return;
-            }
         }
     }
+
+    // If an empty cell is clicked, add a wall
+    for (_floor, transform) in q_empty_cells.iter() {
+        if is_cursor_in_cell(cursor_position, transform) {
+            commands.spawn((
+                Wall,
+                SpriteBundle {
+                    transform: Transform {
+                        translation: transform.translation.with_z(1.0),
+                        scale: CELL_SIZE.extend(1.0),
+                        ..Default::default()
+                    },
+                    sprite: Sprite {
+                        color: WALL_COLOR,
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                },
+            ));
+            return;
+        }
+    }
+}
+
+fn is_cursor_in_cell(cursor: Vec2, cell: &Transform) -> bool {
+    let center = cell.translation.xy();
+    let half_size = CELL_SIZE / 2.0;
+
+    let bottom_left = center - half_size;
+    let top_right = center + half_size;
+
+    cursor.x >= bottom_left.x
+        && cursor.x <= top_right.x
+        && cursor.y >= bottom_left.y
+        && cursor.y <= top_right.y
 }
