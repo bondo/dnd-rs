@@ -1,3 +1,5 @@
+use std::cmp::Ordering;
+
 use bevy::{
     input::common_conditions::input_just_pressed, prelude::*, render::camera::ScalingMode,
     window::PrimaryWindow,
@@ -8,9 +10,12 @@ use dnd_rs_level::{CellFloor, CellKind, Level};
 const UNIT_SIZE: f32 = 100.0;
 const OFFSET: f32 = UNIT_SIZE / 2.0;
 
-const TEXT_COLOR: Color = Color::srgb(0.5, 0.5, 1.0);
-const TEXT_SIZE: f32 = UNIT_SIZE * 0.75;
+const HEADER_TEXT_COLOR_TOO_FEW: Color = Color::srgb(0.5, 0.5, 1.0);
+const HEADER_TEXT_COLOR_MATCH: Color = Color::srgb(0.0, 1.0, 0.0);
+const HEADER_TEXT_COLOR_TOO_MANY: Color = Color::srgb(1.0, 0.0, 0.0);
 const QUESTION_MARK_COLOR: Color = Color::srgb(1.0, 0.5, 0.0);
+
+const TEXT_SIZE: f32 = UNIT_SIZE * 0.75;
 
 const PADDING_TOP: f32 = 0.0;
 const PADDING_LEFT: f32 = 0.0;
@@ -27,8 +32,6 @@ const BORDER_WIDTH: f32 = UNIT_SIZE * 0.05;
 const CELL_SIZE: Vec2 = Vec2::new(UNIT_SIZE - BORDER_WIDTH, UNIT_SIZE - BORDER_WIDTH);
 
 // TODO:
-// - Add indicator when row/column wall count matches
-// - Add indicator when row/column has too many walls
 // - Add indicator when monster is in a blind alley
 // - Handle level completed
 // - Add interface settings to change level size
@@ -49,6 +52,8 @@ impl Plugin for DungeonsAndDiagramsPlugin {
                 (
                     handle_click.run_if(input_just_pressed(MouseButton::Left)),
                     handle_right_click.run_if(input_just_pressed(MouseButton::Right)),
+                    update_row_header_colors,
+                    update_column_header_colors,
                 ),
             );
     }
@@ -59,6 +64,15 @@ struct MainCamera;
 
 #[derive(Component, Default)]
 struct Cell;
+
+#[derive(Component)]
+struct HeaderText(usize);
+
+#[derive(Component, Clone, Copy)]
+struct Row(usize);
+
+#[derive(Component, Clone, Copy)]
+struct Column(usize);
 
 #[derive(Component, Default)]
 struct Floor;
@@ -144,6 +158,7 @@ fn setup(mut commands: Commands, level: Res<Level>) {
             scale: CELL_SIZE.extend(1.0),
             ..Default::default()
         };
+        let pos = (Row(c.y()), Column(c.x()));
         match c.kind() {
             CellKind::Wall | CellKind::Floor(CellFloor::Empty) => {
                 commands.spawn((
@@ -158,6 +173,7 @@ fn setup(mut commands: Commands, level: Res<Level>) {
                         },
                         ..Default::default()
                     },
+                    pos,
                 ));
             }
             CellKind::Floor(CellFloor::Treasure) => {
@@ -173,6 +189,7 @@ fn setup(mut commands: Commands, level: Res<Level>) {
                         },
                         ..Default::default()
                     },
+                    pos,
                 ));
             }
             CellKind::Floor(CellFloor::Monster) => {
@@ -188,6 +205,7 @@ fn setup(mut commands: Commands, level: Res<Level>) {
                         },
                         ..Default::default()
                     },
+                    pos,
                 ));
             }
         }
@@ -195,39 +213,47 @@ fn setup(mut commands: Commands, level: Res<Level>) {
 
     let text_style = TextStyle {
         font_size: TEXT_SIZE,
-        color: TEXT_COLOR,
+        color: HEADER_TEXT_COLOR_TOO_FEW,
         ..Default::default()
     };
 
     column_headers.iter().enumerate().for_each(|(i, value)| {
-        commands.spawn(Text2dBundle {
-            text: Text::from_section(value.to_string(), text_style.clone()),
-            transform: Transform::from_xyz(
-                (i as f32 + 1.0) * UNIT_SIZE + OFFSET + PADDING_LEFT,
-                height - (OFFSET + PADDING_TOP),
-                100.0,
-            ),
-            ..Default::default()
-        });
+        commands.spawn((
+            Text2dBundle {
+                text: Text::from_section(value.to_string(), text_style.clone()),
+                transform: Transform::from_xyz(
+                    (i as f32 + 1.0) * UNIT_SIZE + OFFSET + PADDING_LEFT,
+                    height - (OFFSET + PADDING_TOP),
+                    100.0,
+                ),
+                ..Default::default()
+            },
+            Column(i),
+            HeaderText(*value),
+        ));
     });
 
     row_headers.iter().enumerate().for_each(|(i, value)| {
-        commands.spawn(Text2dBundle {
-            text: Text::from_section(value.to_string(), text_style.clone()),
-            transform: Transform::from_xyz(
-                OFFSET + PADDING_LEFT,
-                height - ((i as f32 + 1.0) * UNIT_SIZE + OFFSET + PADDING_TOP),
-                100.0,
-            ),
-            ..Default::default()
-        });
+        commands.spawn((
+            Text2dBundle {
+                text: Text::from_section(value.to_string(), text_style.clone()),
+                transform: Transform::from_xyz(
+                    OFFSET + PADDING_LEFT,
+                    height - ((i as f32 + 1.0) * UNIT_SIZE + OFFSET + PADDING_TOP),
+                    100.0,
+                ),
+                ..Default::default()
+            },
+            Row(i),
+            HeaderText(*value),
+        ));
     });
 }
 
 fn handle_click(
     mut commands: Commands,
     q_walls: Query<(Entity, &Transform), With<Wall>>,
-    q_empty_cells: Query<(&Floor, &Transform), Without<Wall>>,
+    q_empty_cells: Query<(&Floor, &Transform, &Row, &Column), Without<Wall>>,
     q_windows: Query<&Window, With<PrimaryWindow>>,
     q_camera: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
 ) {
@@ -245,7 +271,7 @@ fn handle_click(
     }
 
     // If an empty cell is clicked, add a wall
-    for (_floor, transform) in q_empty_cells.iter() {
+    for (_floor, transform, row, column) in q_empty_cells.iter() {
         if is_cursor_in_cell(cursor_position, transform) {
             commands.spawn((
                 Wall,
@@ -261,6 +287,8 @@ fn handle_click(
                     },
                     ..Default::default()
                 },
+                *row,
+                *column,
             ));
             return;
         }
@@ -270,7 +298,7 @@ fn handle_click(
 fn handle_right_click(
     mut commands: Commands,
     q_question_marks: Query<(Entity, &Transform), With<QuestionMark>>,
-    q_cells: Query<(&Cell, &Transform), Without<QuestionMark>>,
+    q_cells: Query<(&Cell, &Transform, &Row, &Column), Without<QuestionMark>>,
     q_windows: Query<&Window, With<PrimaryWindow>>,
     q_camera: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
 ) {
@@ -288,7 +316,7 @@ fn handle_right_click(
     }
 
     // If a cell is clicked, add a question mark
-    for (_cell, transform) in q_cells.iter() {
+    for (_cell, transform, row, column) in q_cells.iter() {
         if is_cursor_in_cell(cursor_position, transform) {
             commands.spawn((
                 QuestionMark,
@@ -307,10 +335,60 @@ fn handle_right_click(
                     },
                     ..Default::default()
                 },
+                *row,
+                *column,
             ));
             return;
         }
     }
+}
+
+fn update_row_header_colors(
+    mut q_row_headers: Query<(&Row, &mut Text, &HeaderText)>,
+    q_walls: Query<&Row, With<Wall>>,
+    level: Res<Level>,
+) {
+    // Count walls in each row and column
+    let mut row_walls = vec![0; level.height()];
+    q_walls.iter().for_each(|row| {
+        row_walls[row.0] += 1;
+    });
+
+    // Update row headers colors
+    q_row_headers
+        .iter_mut()
+        .for_each(|(row, mut text, header_text)| {
+            let row_wall_count = row_walls[row.0];
+            text.sections[0].style.color = match row_wall_count.cmp(&header_text.0) {
+                Ordering::Less => HEADER_TEXT_COLOR_TOO_FEW,
+                Ordering::Equal => HEADER_TEXT_COLOR_MATCH,
+                Ordering::Greater => HEADER_TEXT_COLOR_TOO_MANY,
+            };
+        });
+}
+
+fn update_column_header_colors(
+    mut q_column_headers: Query<(&Column, &mut Text, &HeaderText)>,
+    q_walls: Query<&Column, With<Wall>>,
+    level: Res<Level>,
+) {
+    // Count walls in each row and column
+    let mut column_walls = vec![0; level.width()];
+    q_walls.iter().for_each(|column| {
+        column_walls[column.0] += 1;
+    });
+
+    // Update column headers colors
+    q_column_headers
+        .iter_mut()
+        .for_each(|(column, mut text, header_text)| {
+            let column_wall_count = column_walls[column.0];
+            text.sections[0].style.color = match column_wall_count.cmp(&header_text.0) {
+                Ordering::Less => HEADER_TEXT_COLOR_TOO_FEW,
+                Ordering::Equal => HEADER_TEXT_COLOR_MATCH,
+                Ordering::Greater => HEADER_TEXT_COLOR_TOO_MANY,
+            };
+        });
 }
 
 fn is_cursor_in_cell(cursor: Vec2, cell: &Transform) -> bool {
