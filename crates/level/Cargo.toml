@@ -2,6 +2,7 @@
 name = "dnd-rs-level"
 version.workspace = true
 edition.workspace = true
+authors.workspace = true
 
 [dependencies]
 bevy.workspace = true

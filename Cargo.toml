@@ -5,6 +5,7 @@ members = ["crates/*"]
 [workspace.package]
 version = "0.1.3"
 edition = "2021"
+authors = ["Bjarke Bondo Andersen <andersen.bjarke@gmail.com>"]
 
 [workspace.dependencies]
 bevy = { version = "0.14.1", default-features = false, features = [
@@ -20,24 +21,25 @@ log = { version = "*", features = [
 ] }
 rand = { version = "0.8.5" }
 
+# Enable a small amount of optimization in the dev profile.
+[profile.dev]
+opt-level = 1
+
+# Enable a large amount of optimization in the dev profile for dependencies.
+[profile.dev.package."*"]
+opt-level = 3
+
 # Enable more optimization in the release profile at the cost of compile time.
 [profile.release]
+
 # Compile the entire crate as one unit.
 # Slows compile times, marginal improvements.
 codegen-units = 1
+
 # Do a second optimization pass over the entire program, including dependencies.
 # Slows compile times, marginal improvements.
 lto = "thin"
 
-# When releasing for web, you can pass --profile wasm-release to cargo instead of --release.
-# More WASM optimizations: https://bevyengine.org/learn/quick-start/getting-started/setup/#advanced-wasm-optimizations
-
-# Optimize for size in the wasm-release profile to reduce load times and bandwidth usage on web.
-[profile.wasm-release]
-# Default to release profile values.
-inherits = "release"
-# Optimize with size in mind (also try "z", sometimes it is better).
-# Slightly slows compile times, great improvements to file size and runtime performance.
+# Tell `rustc` to optimize for small code size when building for wasm
+[profile.release.package."dnd-rs-web-app"]
 opt-level = "s"
-# Strip all debugging information from the binary to slightly reduce file size.
-strip = "debuginfo"
