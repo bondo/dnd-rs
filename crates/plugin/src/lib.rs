@@ -32,11 +32,12 @@ const BORDER_WIDTH: f32 = UNIT_SIZE * 0.05;
 const CELL_SIZE: Vec2 = Vec2::new(UNIT_SIZE - BORDER_WIDTH, UNIT_SIZE - BORDER_WIDTH);
 
 // TODO:
+// - Handle press events like left click
+// - Handle long press events like right click
 // - Add indicator when monster is in a blind alley
 // - Handle level completed
 // - Add interface settings to change level size
 // - Add Android support
-// - Deploy to web on release
 
 pub struct DungeonsAndDiagramsPlugin;
 
