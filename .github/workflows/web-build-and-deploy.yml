@@ -16,15 +16,13 @@ jobs:
           target: wasm32-unknown-unknown
       - name: Install wasm-pack
         run: cargo install wasm-pack
-      - run: cd crates/web-app
       - name: Build
-        run: wasm-pack build --target web --no-pack --no-typescript --release --out-dir assets/lib
+        run: wasm-pack build --target web --no-pack --no-typescript --release --out-dir crates/web-app/assets/lib crates/web-app
       - name: Publish to Cloudflare Pages
         uses: cloudflare/pages-action@v1
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: d578b9ca3a384d53a33bf45006382347
           projectName: dnd
-          directory: assets
+          directory: crates/web-app/assets
           wranglerVersion: "3"
-        # if: startsWith(github.ref, 'refs/tags/v')
