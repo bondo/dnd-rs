@@ -28,4 +28,5 @@ jobs:
           accountId: d578b9ca3a384d53a33bf45006382347
           projectName: dnd
           directory: crates/web-app/assets
+          branch: main
           wranglerVersion: "3"
