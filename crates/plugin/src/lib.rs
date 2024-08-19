@@ -32,7 +32,6 @@ const BORDER_WIDTH: f32 = UNIT_SIZE * 0.05;
 const CELL_SIZE: Vec2 = Vec2::new(UNIT_SIZE - BORDER_WIDTH, UNIT_SIZE - BORDER_WIDTH);
 
 // TODO:
-// - Handle press events like left click
 // - Handle long press events like right click
 // - Add indicator when monster is in a blind alley
 // - Handle level completed
@@ -51,8 +50,9 @@ impl Plugin for DungeonsAndDiagramsPlugin {
             .add_systems(
                 Update,
                 (
-                    handle_click.run_if(input_just_pressed(MouseButton::Left)),
+                    handle_left_click.run_if(input_just_pressed(MouseButton::Left)),
                     handle_right_click.run_if(input_just_pressed(MouseButton::Right)),
+                    handle_touch,
                     update_row_header_colors,
                     update_column_header_colors,
                 ),
@@ -251,7 +251,7 @@ fn setup(mut commands: Commands, level: Res<Level>) {
     });
 }
 
-fn handle_click(
+fn handle_left_click(
     mut commands: Commands,
     q_walls: Query<(Entity, &Transform), With<Wall>>,
     q_empty_cells: Query<(&Floor, &Transform, &Row, &Column), Without<Wall>>,
@@ -263,9 +263,37 @@ fn handle_click(
         return;
     };
 
+    execute_primary_action(&mut commands, &q_walls, &q_empty_cells, cursor_position);
+}
+
+fn handle_touch(
+    mut touch_events: EventReader<TouchInput>,
+    mut commands: Commands,
+    q_walls: Query<(Entity, &Transform), With<Wall>>,
+    q_empty_cells: Query<(&Floor, &Transform, &Row, &Column), Without<Wall>>,
+    q_camera: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
+) {
+    use bevy::input::touch::TouchPhase;
+    for event in touch_events.read() {
+        if event.phase == TouchPhase::Ended {
+            let Some(position) = viewport_to_world_position(&q_camera, event.position) else {
+                continue;
+            };
+
+            execute_primary_action(&mut commands, &q_walls, &q_empty_cells, position);
+        }
+    }
+}
+
+fn execute_primary_action(
+    commands: &mut Commands,
+    q_walls: &Query<(Entity, &Transform), With<Wall>>,
+    q_empty_cells: &Query<(&Floor, &Transform, &Row, &Column), Without<Wall>>,
+    pos: Vec2,
+) {
     // If a wall is clicked, remove it
     for (entity, transform) in q_walls.iter() {
-        if is_cursor_in_cell(cursor_position, transform) {
+        if is_cursor_in_cell(pos, transform) {
             commands.entity(entity).despawn();
             return;
         }
@@ -273,7 +301,7 @@ fn handle_click(
 
     // If an empty cell is clicked, add a wall
     for (_floor, transform, row, column) in q_empty_cells.iter() {
-        if is_cursor_in_cell(cursor_position, transform) {
+        if is_cursor_in_cell(pos, transform) {
             commands.spawn((
                 Wall,
                 SpriteBundle {
@@ -409,7 +437,13 @@ fn get_cursor_position_in_world(
     q_windows: Query<&Window, With<PrimaryWindow>>,
     q_camera: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
 ) -> Option<Vec2> {
+    viewport_to_world_position(&q_camera, q_windows.single().cursor_position()?)
+}
+
+fn viewport_to_world_position(
+    q_camera: &Query<(&Camera, &GlobalTransform), With<MainCamera>>,
+    position: Vec2,
+) -> Option<Vec2> {
     let (camera, camera_transform) = q_camera.single();
-    let window = q_windows.single();
-    camera.viewport_to_world_2d(camera_transform, window.cursor_position()?)
+    camera.viewport_to_world_2d(camera_transform, position)
 }
