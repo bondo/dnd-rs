@@ -1442,7 +1442,7 @@ dependencies = [
 
 [[package]]
 name = "dnd-rs-desktop-app"
-version = "0.1.6"
+version = "0.1.7"
 dependencies = [
  "bevy",
  "dnd-rs-plugin",
@@ -1451,7 +1451,7 @@ dependencies = [
 
 [[package]]
 name = "dnd-rs-level"
-version = "0.1.6"
+version = "0.1.7"
 dependencies = [
  "bevy",
  "criterion",
@@ -1461,7 +1461,7 @@ dependencies = [
 
 [[package]]
 name = "dnd-rs-plugin"
-version = "0.1.6"
+version = "0.1.7"
 dependencies = [
  "bevy",
  "dnd-rs-level",
@@ -1470,7 +1470,7 @@ dependencies = [
 
 [[package]]
 name = "dnd-rs-web-app"
-version = "0.1.6"
+version = "0.1.7"
 dependencies = [
  "bevy",
  "console_error_panic_hook",
