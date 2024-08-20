@@ -100,13 +100,10 @@ jobs:
         with:
           pattern: dnd-*
           merge-multiple: true
-      - name: Retrieve the URL
-        run: echo "The URL is ${{ needs.web-deploy.outputs.url }}"
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
         with:
           files: dnd-*
           fail_on_unmatched_files: true
           generate_release_notes: true
-          append_body: |
-            The web version is available [here](${{ needs.web-deploy.outputs.url }}).
+          body: The web version is available [here](${{ needs.web-deploy.outputs.url }}).
