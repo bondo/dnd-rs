@@ -1,6 +1,6 @@
 on: push
 
-name: Build And Release for desktop
+name: Build And Release
 
 jobs:
   artifacts:
