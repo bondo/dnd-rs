@@ -56,11 +56,42 @@ jobs:
           name: dnd-${{matrix.platform.target}}.${{ matrix.platform.archive_ext }}
           path: dnd-${{matrix.platform.target}}.${{ matrix.platform.archive_ext }}
 
+  web-deploy:
+    name: Release for web
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    outputs:
+      url: ${{ steps.publish.outputs.url }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Set up Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: nightly
+          target: wasm32-unknown-unknown
+      - name: Install wasm-pack
+        run: npm install -g wasm-pack
+      - name: Build
+        run: wasm-pack build --target web --no-pack --no-typescript --release --out-dir assets/lib crates/web-app
+      - name: Publish to Cloudflare Pages
+        id: publish
+        uses: cloudflare/pages-action@v1
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: d578b9ca3a384d53a33bf45006382347
+          projectName: dnd
+          directory: crates/web-app/assets
+          branch: main
+          wranglerVersion: "3"
+
   release:
     name: Create Release
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: artifacts
+    needs:
+      - artifacts
+      - web-deploy
     permissions:
       contents: write
     steps:
@@ -69,9 +100,13 @@ jobs:
         with:
           pattern: dnd-*
           merge-multiple: true
+      - name: Retrieve the URL
+        run: echo "The URL is ${{ needs.web-deploy.outputs.url }}"
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
         with:
           files: dnd-*
           fail_on_unmatched_files: true
           generate_release_notes: true
+          append_body: |
+            The web version is available [here](${{ needs.web-deploy.outputs.url }}).
