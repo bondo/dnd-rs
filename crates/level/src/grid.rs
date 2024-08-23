@@ -4,9 +4,18 @@ use std::{
 };
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub(super) struct GridPos {
-    pub(super) x: usize,
-    pub(super) y: usize,
+pub(crate) struct GridPos {
+    pub(crate) x: usize,
+    pub(crate) y: usize,
+}
+
+impl GridPos {
+    #[cfg(test)]
+    pub(crate) fn distance(self, other: GridPos) -> usize {
+        let x_dist = (self.x as isize - other.x as isize).abs() as usize;
+        let y_dist = (self.y as isize - other.y as isize).abs() as usize;
+        x_dist.max(y_dist)
+    }
 }
 
 impl From<(usize, usize)> for GridPos {
@@ -15,7 +24,8 @@ impl From<(usize, usize)> for GridPos {
     }
 }
 
-pub(super) struct Grid<C> {
+#[derive(Clone, PartialEq, Eq)]
+pub(crate) struct Grid<C> {
     cells: Vec<C>,
     width: usize,
     height: usize,
@@ -36,7 +46,7 @@ impl<C> IndexMut<GridPos> for Grid<C> {
 }
 
 impl<C> Grid<C> {
-    pub(super) fn new(width: usize, height: usize, fill: C) -> Self
+    pub(crate) fn new(width: usize, height: usize, fill: C) -> Self
     where
         C: Clone,
     {
@@ -47,21 +57,21 @@ impl<C> Grid<C> {
         }
     }
 
-    pub(super) fn width(&self) -> usize {
+    pub(crate) fn width(&self) -> usize {
         self.width
     }
 
-    pub(super) fn height(&self) -> usize {
+    pub(crate) fn height(&self) -> usize {
         self.height
     }
 
-    pub(super) fn iter(&self) -> GridIterator<C> {
+    pub(crate) fn iter(&self) -> GridIterator<C> {
         GridIterator {
             inner: self.cells.iter(),
         }
     }
 
-    pub(super) fn neighbors(&self, GridPos { x, y }: GridPos) -> Vec<GridPos> {
+    pub(crate) fn neighbors(&self, GridPos { x, y }: GridPos) -> Vec<GridPos> {
         let mut neighbors: Vec<GridPos> = Vec::new();
         if x > 0 {
             neighbors.push((x - 1, y).into());
@@ -78,7 +88,7 @@ impl<C> Grid<C> {
         neighbors
     }
 
-    pub(super) fn count_neighbors<F>(&self, p: GridPos, mut f: F) -> usize
+    pub(crate) fn count_neighbors<F>(&self, p: GridPos, mut f: F) -> usize
     where
         F: FnMut(&C) -> bool,
     {
@@ -88,7 +98,7 @@ impl<C> Grid<C> {
             .count()
     }
 
-    pub(super) fn filtered_neighbors<F>(&self, p: GridPos, mut f: F) -> Vec<GridPos>
+    pub(crate) fn filtered_neighbors<F>(&self, p: GridPos, mut f: F) -> Vec<GridPos>
     where
         F: FnMut(&C) -> bool,
     {
@@ -98,7 +108,7 @@ impl<C> Grid<C> {
             .collect()
     }
 
-    pub(super) fn map<F, T>(&self, mut f: F) -> Grid<T>
+    pub(crate) fn map<F, T>(&self, mut f: F) -> Grid<T>
     where
         F: FnMut(&C, GridPos) -> T,
         T: Clone,
@@ -128,7 +138,7 @@ impl<C: Debug> Debug for Grid<C> {
     }
 }
 
-pub(super) struct GridIterator<'a, C> {
+pub(crate) struct GridIterator<'a, C> {
     inner: std::slice::Iter<'a, C>,
 }
 

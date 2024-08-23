@@ -4,13 +4,13 @@ use std::fmt::Debug;
 use super::grid::{Grid, GridPos};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-pub(super) enum GenFloor {
+pub(crate) enum GenFloor {
     Empty,
     Treasure,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-pub(super) enum GenCell {
+pub(crate) enum GenCell {
     Any,
     Floor(GenFloor),
     Wall,
@@ -28,7 +28,7 @@ impl Debug for GenCell {
     }
 }
 
-pub(super) type GenLevel = Grid<GenCell>;
+pub(crate) type GenLevel = Grid<GenCell>;
 
 impl GenLevel {
     pub fn random(width: usize, height: usize) -> Self {
