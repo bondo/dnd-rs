@@ -73,11 +73,11 @@ pub struct LevelIterator<'a> {
     inner: GridIterator<'a, Cell>,
 }
 
-impl Iterator for LevelIterator<'_> {
-    type Item = Cell;
+impl<'a> Iterator for LevelIterator<'a> {
+    type Item = &'a Cell;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.inner.next()
+        self.inner.next().map(|(c, _)| c)
     }
 }
 

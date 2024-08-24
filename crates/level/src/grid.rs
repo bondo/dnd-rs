@@ -9,15 +9,6 @@ pub(crate) struct GridPos {
     pub(crate) y: usize,
 }
 
-impl GridPos {
-    #[cfg(test)]
-    pub(crate) fn distance(self, other: GridPos) -> usize {
-        let x_dist = (self.x as isize - other.x as isize).abs() as usize;
-        let y_dist = (self.y as isize - other.y as isize).abs() as usize;
-        x_dist.max(y_dist)
-    }
-}
-
 impl From<(usize, usize)> for GridPos {
     fn from((x, y): (usize, usize)) -> Self {
         Self { x, y }
@@ -67,7 +58,12 @@ impl<C> Grid<C> {
 
     pub(crate) fn iter(&self) -> GridIterator<C> {
         GridIterator {
-            inner: self.cells.iter(),
+            inner: Box::new(
+                self.cells
+                    .iter()
+                    .enumerate()
+                    .map(|(idx, c)| (c, (idx % self.width, idx / self.width).into())),
+            ),
         }
     }
 
@@ -114,12 +110,7 @@ impl<C> Grid<C> {
         T: Clone,
     {
         Grid {
-            cells: self
-                .cells
-                .iter()
-                .enumerate()
-                .map(|(idx, c)| f(c, (idx % self.width, idx / self.width).into()))
-                .collect(),
+            cells: self.iter().map(|(c, p)| f(c, p)).collect::<Vec<T>>(),
             width: self.width,
             height: self.height,
         }
@@ -139,13 +130,13 @@ impl<C: Debug> Debug for Grid<C> {
 }
 
 pub(crate) struct GridIterator<'a, C> {
-    inner: std::slice::Iter<'a, C>,
+    inner: Box<dyn Iterator<Item = (&'a C, GridPos)> + 'a>,
 }
 
-impl<'a, C: Copy> Iterator for GridIterator<'a, C> {
-    type Item = C;
+impl<'a, C> Iterator for GridIterator<'a, C> {
+    type Item = (&'a C, GridPos);
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.inner.next().copied()
+        self.inner.next()
     }
 }
