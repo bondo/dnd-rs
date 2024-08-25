@@ -9,7 +9,7 @@ enum SolverCell {
     Monster,
     TreasureRoom,
 
-    Empty,
+    Floor,
     Wall,
 }
 
@@ -36,8 +36,10 @@ pub struct Solver {
     unknown_positions: Vec<GridPos>,
     row_numbers: Vec<usize>,
     col_numbers: Vec<usize>,
-    possible_treasure_rooms: Vec<GridPos>,
     current_treasure_room: GridPos,
+    current_treasure_room_exit: GridPos,
+    possible_treasure_rooms: Vec<GridPos>,
+    possible_treasure_room_exits: Vec<GridPos>,
 }
 
 impl Solver {
@@ -76,8 +78,38 @@ impl Solver {
 
         let current_treasure_room = possible_treasure_rooms.pop().unwrap();
 
+        let mut possible_treasure_room_exits = Vec::new();
+        let tx = current_treasure_room.x;
+        let ty = current_treasure_room.y;
+        if ty > 1 {
+            for x in tx - 1..=tx + 3 {
+                possible_treasure_room_exits.push((x, ty - 1).into());
+            }
+        }
+        if ty + 4 < level.height() {
+            for x in tx - 1..=tx + 3 {
+                possible_treasure_room_exits.push((x, ty + 3).into());
+            }
+        }
+        if tx > 1 {
+            for y in ty - 1..=ty + 3 {
+                possible_treasure_room_exits.push((tx - 1, y).into());
+            }
+        }
+        if tx + 4 < level.width() {
+            for y in ty - 1..=ty + 3 {
+                possible_treasure_room_exits.push((tx + 3, y).into());
+            }
+        }
+
+        let current_treasure_room_exit = possible_treasure_room_exits.pop().unwrap();
+
         let mut level = SolverLevel::from(&level);
-        Solver::mark_treasure_room(&mut level, current_treasure_room);
+        Solver::mark_treasure_room(
+            &mut level,
+            current_treasure_room,
+            current_treasure_room_exit,
+        );
 
         let unknown_positions: Vec<GridPos> = level
             .iter()
@@ -96,26 +128,39 @@ impl Solver {
             unknown_positions,
             row_numbers,
             col_numbers,
-            possible_treasure_rooms,
             current_treasure_room,
+            current_treasure_room_exit,
+            possible_treasure_rooms,
+            possible_treasure_room_exits,
         }
     }
 
-    fn mark_treasure_room(level: &mut SolverLevel, current_treasure_room: GridPos) {
+    fn mark_treasure_room(
+        level: &mut SolverLevel,
+        current_treasure_room: GridPos,
+        current_treasure_room_exit: GridPos,
+    ) {
         let tx = current_treasure_room.x;
         let ty = current_treasure_room.y;
-        for x in tx..=tx + 3 {
-            for y in ty..=ty + 3 {
-                level[(x, y).into()] = SolverCell::TreasureRoom;
+
+        for x in tx - 1..=tx + 3 {
+            for y in ty - 1..=ty + 3 {
+                level[(x, y).into()] = if x < tx || y < ty || x > tx + 2 || y > ty + 2 {
+                    SolverCell::Wall
+                } else {
+                    SolverCell::TreasureRoom
+                };
             }
         }
+
+        level[current_treasure_room_exit] = SolverCell::Unknown;
     }
 
     fn clear_treasure_room(level: &mut SolverLevel, current_treasure_room: GridPos) {
         let tx = current_treasure_room.x;
         let ty = current_treasure_room.y;
-        for x in tx..=tx + 3 {
-            for y in ty..=ty + 3 {
+        for x in tx - 1..=tx + 3 {
+            for y in ty - 1..=ty + 3 {
                 level[(x, y).into()] = SolverCell::Unknown;
             }
         }
@@ -142,15 +187,27 @@ impl Solver {
             SolverCell::TreasureRoom => true,
             SolverCell::Monster => {
                 self.level.count_neighbors(pos, |neighbor| {
-                    matches!(neighbor, SolverCell::Empty | SolverCell::TreasureRoom)
+                    matches!(neighbor, SolverCell::Floor | SolverCell::TreasureRoom)
                 }) == 1
             }
-            SolverCell::Empty => {
+            SolverCell::Floor => {
                 self.level.count_neighbors(pos, |neighbor| {
-                    matches!(neighbor, SolverCell::Empty | SolverCell::TreasureRoom)
+                    matches!(neighbor, SolverCell::Floor | SolverCell::TreasureRoom)
                 }) == 2
             }
         })
+
+        // TODO: Check connectivity
+    }
+
+    fn can_have_floor(&self, pos: GridPos) -> bool {
+        self.level.count_neighbors(pos, |neighbor| {
+            matches!(neighbor, SolverCell::Floor | SolverCell::TreasureRoom)
+        }) <= 2
+    }
+
+    fn can_have_wall(&self, pos: GridPos) -> bool {
+        true // TODO: Check row/column numbers
     }
 }
 
@@ -158,14 +215,75 @@ impl Iterator for Solver {
     type Item = Level;
 
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some(position) = self.updated_positions.pop() {
-            self.unknown_positions.push(position);
-            if self.level[position] == SolverCell::Wall {
-                self.level[position] = SolverCell::Unknown;
-            } else {
-                self.level[position] = SolverCell::Unknown;
-                break;
+        let mut work_queue = vec![self.current_treasure_room_exit];
+        let mut tried_wall = Grid::new(self.level.width(), self.level.height(), false);
+        tried_wall[self.current_treasure_room_exit] = true;
+
+        loop {
+            // TODO: Backtrack. Update `tried_wall` along the way.
+            //       If no more options, try next treasure room exit.
+            //       If no more options, try next treasure room.
+            //       If no more treasure rooms, return None.
+
+            // while let Some(position) = self.updated_positions.pop() {
+            //     self.unknown_positions.push(position);
+            //     if self.level[position] == SolverCell::Wall {
+            //         self.level[position] = SolverCell::Unknown;
+            //     } else {
+            //         self.level[position] = SolverCell::Unknown;
+            //         break;
+            //     }
+            // }
+
+            while let Some(pos) = work_queue.pop() {
+                let cell = self.level[pos];
+                if cell != SolverCell::Unknown {
+                    continue;
+                }
+                self.level[pos] = if tried_wall[pos] && self.can_have_floor(pos) {
+                    SolverCell::Floor
+                } else if !tried_wall[pos] && self.can_have_wall(pos) {
+                    tried_wall[pos] = true;
+                    SolverCell::Wall
+                } else {
+                    // TODO: Backtrack
+                    continue;
+                };
+                self.updated_positions.push(pos);
+
+                for neighbor in self.level.neighbors(pos) {
+                    if self.level[neighbor] == SolverCell::Unknown {
+                        work_queue.push(neighbor);
+                    }
+                }
             }
+
+            // TODO: Backtrack if level is not solvable
+
+            // Place all unknown cells
+            // loop {
+            //     let Some(pos) = self.unknown_positions.pop() else {
+            //         if self.is_solved() {
+            //             return Some(Level {
+            //                 grid: self.level.map(|cell, position| Cell {
+            //                     kind: match cell {
+            //                         SolverCell::Wall => CellKind::Wall,
+            //                         SolverCell::Monster => CellKind::Floor(CellFloor::Monster),
+            //                         SolverCell::TreasureRoom => {
+            //                             CellKind::Floor(CellFloor::Treasure)
+            //                         }
+            //                         SolverCell::Floor => CellKind::Floor(CellFloor::Empty),
+            //                         SolverCell::Unknown => panic!("Unknown cell in solved level"),
+            //                     },
+            //                     position,
+            //                 }),
+            //             });
+            //         } else {
+            //             // Backtrack
+            //             break;
+            //         }
+            //     };
+            // }
         }
 
         None
