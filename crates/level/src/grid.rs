@@ -67,6 +67,16 @@ impl<C> Grid<C> {
         }
     }
 
+    pub(crate) fn next_pos(&self, pos: &GridPos) -> Option<GridPos> {
+        if pos.x + 1 < self.width {
+            Some((pos.x + 1, pos.y).into())
+        } else if pos.y + 1 < self.height {
+            Some((0, pos.y + 1).into())
+        } else {
+            None
+        }
+    }
+
     pub(crate) fn neighbors(&self, GridPos { x, y }: GridPos) -> Vec<GridPos> {
         let mut neighbors: Vec<GridPos> = Vec::new();
         if x > 0 {
@@ -82,6 +92,24 @@ impl<C> Grid<C> {
             neighbors.push((x, y + 1).into());
         }
         neighbors
+    }
+
+    #[cfg(test)]
+    pub(crate) fn count_row<F>(&self, y: usize, mut f: F) -> usize
+    where
+        F: FnMut(&C) -> bool,
+    {
+        (0..self.width).filter(|&x| f(&self[(x, y).into()])).count()
+    }
+
+    #[cfg(test)]
+    pub(crate) fn count_col<F>(&self, x: usize, mut f: F) -> usize
+    where
+        F: FnMut(&C) -> bool,
+    {
+        (0..self.height)
+            .filter(|&y| f(&self[(x, y).into()]))
+            .count()
     }
 
     pub(crate) fn count_neighbors<F>(&self, p: GridPos, mut f: F) -> usize
