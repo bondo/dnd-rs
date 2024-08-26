@@ -15,6 +15,12 @@ impl From<(usize, usize)> for GridPos {
     }
 }
 
+impl Debug for GridPos {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "({}, {})", self.x, self.y)
+    }
+}
+
 #[derive(Clone, PartialEq, Eq)]
 pub(crate) struct Grid<C> {
     cells: Vec<C>,
@@ -67,16 +73,6 @@ impl<C> Grid<C> {
         }
     }
 
-    pub(crate) fn next_pos(&self, pos: &GridPos) -> Option<GridPos> {
-        if pos.x + 1 < self.width {
-            Some((pos.x + 1, pos.y).into())
-        } else if pos.y + 1 < self.height {
-            Some((0, pos.y + 1).into())
-        } else {
-            None
-        }
-    }
-
     pub(crate) fn neighbors(&self, GridPos { x, y }: GridPos) -> Vec<GridPos> {
         let mut neighbors: Vec<GridPos> = Vec::new();
         if x > 0 {
@@ -92,6 +88,17 @@ impl<C> Grid<C> {
             neighbors.push((x, y + 1).into());
         }
         neighbors
+    }
+
+    #[cfg(test)]
+    pub(crate) fn next_pos(&self, pos: &GridPos) -> Option<GridPos> {
+        if pos.x + 1 < self.width {
+            Some((pos.x + 1, pos.y).into())
+        } else if pos.y + 1 < self.height {
+            Some((0, pos.y + 1).into())
+        } else {
+            None
+        }
     }
 
     #[cfg(test)]

@@ -26,11 +26,136 @@ impl From<&Cell> for SolverCell {
     }
 }
 
+impl std::fmt::Debug for SolverCell {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let c = match self {
+            SolverCell::Wall => '#',
+            SolverCell::Hallway => '.',
+            SolverCell::Monster => 'M',
+            SolverCell::Treasure => 'T',
+            SolverCell::Unknown => '?',
+        };
+        write!(f, "{}", c)
+    }
+}
+
 type SolverLevel = Grid<SolverCell>;
 
 impl From<&Level> for SolverLevel {
     fn from(level: &Level) -> Self {
         level.grid.map(|cell, _position| SolverCell::from(cell))
+    }
+}
+
+impl From<&SolverLevel> for Level {
+    fn from(level: &SolverLevel) -> Self {
+        Self {
+            grid: level.map(|cell, pos| Cell {
+                kind: match cell {
+                    SolverCell::Wall => CellKind::Wall,
+                    SolverCell::Hallway => CellKind::Floor(CellFloor::Empty),
+                    SolverCell::Monster => CellKind::Floor(CellFloor::Monster),
+                    SolverCell::Treasure => CellKind::Floor(CellFloor::Treasure),
+                    SolverCell::Unknown => panic!("Unknown cell:\n{level:?}"),
+                },
+                position: pos,
+            }),
+        }
+    }
+}
+
+impl TryFrom<&str> for SolverLevel {
+    type Error = String;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        let lines = value.trim().lines();
+        let height = lines.clone().count();
+        let width = lines.clone().next().map(str::len).unwrap_or(0);
+        let mut grid = Grid::new(width, height, SolverCell::Unknown);
+
+        for (y, line) in lines.enumerate() {
+            let line = line.trim();
+            if line.len() != width {
+                return Err(format!("Invalid line length at line {}", y));
+            }
+            for (x, c) in line.chars().enumerate() {
+                let pos = (x, y).into();
+                grid[pos] = match c {
+                    '#' => SolverCell::Wall,
+                    '.' => SolverCell::Hallway,
+                    'M' => SolverCell::Monster,
+                    'T' => SolverCell::Treasure,
+                    '?' => SolverCell::Unknown,
+                    _ => {
+                        return Err(format!("Invalid character at ({}, {}): {}", x, y, c));
+                    }
+                };
+            }
+        }
+
+        Ok(grid)
+    }
+}
+
+impl TryFrom<&str> for Solver {
+    type Error = String;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        let mut lines = value.trim().lines();
+        let Some(col_header) = lines.next() else {
+            return Err(format!("Column header not found"));
+        };
+
+        let mut col_numbers: Vec<usize> = Vec::new();
+        for v in col_header.split_whitespace() {
+            let Ok(v) = v.parse::<usize>() else {
+                return Err(format!(
+                    "Could not read column header value as integer: {v}"
+                ));
+            };
+            col_numbers.push(v);
+        }
+
+        let width = col_numbers.len();
+        let height = lines.clone().count();
+        let mut grid = Grid::new(width, height, SolverCell::Unknown);
+
+        let mut row_numbers: Vec<usize> = Vec::new();
+        for (y, line) in lines.enumerate() {
+            let mut line = line.split_whitespace();
+            if line.clone().count() != width + 1 {
+                return Err(format!(
+                    "Invalid line length {} at line {}. Expected {}.",
+                    line.clone().count(),
+                    y,
+                    width + 1
+                ));
+            }
+            let Some(row_header) = line.next() else {
+                return Err(format!("Row header not found on line {}", y));
+            };
+            let Ok(row_header) = row_header.parse::<usize>() else {
+                return Err(format!(
+                    "Could not row header on line {y} as integer: {row_header}"
+                ));
+            };
+            row_numbers.push(row_header);
+            for (x, v) in line.enumerate() {
+                let pos = (x, y).into();
+                grid[pos] = match v {
+                    "#" => SolverCell::Wall,
+                    "." => SolverCell::Hallway,
+                    "M" => SolverCell::Monster,
+                    "T" => SolverCell::Treasure,
+                    "?" => SolverCell::Unknown,
+                    _ => {
+                        return Err(format!("Invalid value at {pos:?}: {v}"));
+                    }
+                };
+            }
+        }
+
+        Ok(Solver::from_parts(grid, row_numbers, col_numbers))
     }
 }
 
@@ -191,11 +316,36 @@ pub struct Solver {
     row_numbers: Vec<usize>,
     col_numbers: Vec<usize>,
     treasures: Vec<GridPos>,
-    solved: bool,
+    max_solutions: usize,
+    solutions: Vec<Level>,
+}
+
+impl std::fmt::Debug for Solver {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "Solver (solutions = {})", self.solutions.len())?;
+
+        let level = format!("{:?}", self.level);
+        let level_rows = level.trim().split('\n').collect::<Vec<_>>();
+
+        // Print column header
+        write!(f, "  ")?;
+        for i in 0..self.level.width() {
+            write!(f, "{}", self.col_numbers[i])?;
+        }
+        writeln!(f, "")?;
+
+        // Print rows, prefixed with row header
+        assert_eq!(self.row_numbers.len(), level_rows.len());
+        for (i, row) in level_rows.iter().enumerate() {
+            writeln!(f, "{} {row}", self.row_numbers[i])?;
+        }
+
+        Ok(())
+    }
 }
 
 impl Solver {
-    pub fn new(level: &Level) -> Self {
+    pub fn from_level(level: &Level) -> Self {
         let mut col_numbers = vec![0; level.width()];
         let mut row_numbers = vec![0; level.height()];
         level.iter().for_each(|c| {
@@ -207,6 +357,10 @@ impl Solver {
 
         let level = SolverLevel::from(level);
 
+        Self::from_parts(level, row_numbers, col_numbers)
+    }
+
+    fn from_parts(level: SolverLevel, row_numbers: Vec<usize>, col_numbers: Vec<usize>) -> Self {
         let treasures = level.find_treasures();
 
         Self {
@@ -214,7 +368,8 @@ impl Solver {
             row_numbers,
             col_numbers,
             treasures,
-            solved: false,
+            max_solutions: 0,
+            solutions: Vec::new(),
         }
     }
 
@@ -234,8 +389,10 @@ impl Solver {
 
         // all dead ends are monsters, all monsters are on dead ends
         if !self.level.iter().all(|(cell, pos)| {
+            let num_neighbors = self.level.count_neighbors(pos, |_| true);
+            let num_walls = self.level.count_neighbors(pos, |n| *n == SolverCell::Wall);
             let is_monster = *cell == SolverCell::Monster;
-            let is_dead_end = self.level.count_neighbors(pos, |n| *n == SolverCell::Wall) == 3;
+            let is_dead_end = *cell != SolverCell::Wall && num_walls == (num_neighbors - 1);
             is_monster == is_dead_end
         }) {
             return false;
@@ -283,7 +440,7 @@ impl Solver {
         let row_walls = self.level.count_row(pos.y, |c| *c == SolverCell::Wall);
         let row_unknowns = self.level.count_row(pos.y, |c| *c == SolverCell::Unknown);
         let min_row_walls = row_walls + if cell == SolverCell::Wall { 1 } else { 0 };
-        let max_row_walls = row_walls + row_unknowns - 1;
+        let max_row_walls = row_walls + row_unknowns - if cell == SolverCell::Wall { 0 } else { 1 };
         if min_row_walls > self.row_numbers[pos.y] || max_row_walls < self.row_numbers[pos.y] {
             return false;
         }
@@ -291,7 +448,7 @@ impl Solver {
         let col_walls = self.level.count_col(pos.x, |c| *c == SolverCell::Wall);
         let col_unknowns = self.level.count_col(pos.x, |c| *c == SolverCell::Unknown);
         let min_col_walls = col_walls + if cell == SolverCell::Wall { 1 } else { 0 };
-        let max_col_walls = col_walls + col_unknowns - 1;
+        let max_col_walls = col_walls + col_unknowns - if cell == SolverCell::Wall { 0 } else { 1 };
         if min_col_walls > self.col_numbers[pos.x] || max_col_walls < self.col_numbers[pos.x] {
             return false;
         }
@@ -301,6 +458,8 @@ impl Solver {
             if self.level[neighbor] == SolverCell::Unknown {
                 continue;
             }
+            let num_neighbors = self.level.count_neighbors(neighbor, |_| true);
+
             let num_walls = self
                 .level
                 .count_neighbors(neighbor, |n| *n == SolverCell::Wall);
@@ -308,11 +467,18 @@ impl Solver {
                 .level
                 .count_neighbors(neighbor, |n| *n == SolverCell::Unknown);
             let min_walls = num_walls + if cell == SolverCell::Wall { 1 } else { 0 };
-            let max_walls = num_walls + num_unknowns - 1;
+            let max_walls = num_walls + num_unknowns - if cell == SolverCell::Wall { 0 } else { 1 };
 
             let has_monster = self.level[neighbor] == SolverCell::Monster;
-            let is_dead_end = min_walls <= 3 && 3 <= max_walls;
-            if has_monster != is_dead_end {
+            let is_dead_end = self.level[neighbor] != SolverCell::Wall
+                && min_walls == (num_neighbors - 1)
+                && num_unknowns < 2;
+            if has_monster
+                && !(min_walls <= (num_neighbors - 1) && (num_neighbors - 1) <= max_walls)
+            {
+                return false;
+            }
+            if !has_monster && is_dead_end {
                 return false;
             }
         }
@@ -321,12 +487,12 @@ impl Solver {
     }
 
     fn place_cell(&mut self, pos: Option<GridPos>) {
-        if self.solved {
+        if self.solutions.len() >= self.max_solutions {
             return;
         }
         let Some(pos) = pos else {
             if self.check_full_validity() {
-                self.solved = true;
+                self.solutions.push((&self.level).into())
             }
             return;
         };
@@ -340,29 +506,26 @@ impl Solver {
             }
             self.level[pos] = cell;
             self.place_cell(self.level.next_pos(&pos));
+            if self.solutions.len() >= self.max_solutions {
+                return;
+            }
             self.level[pos] = SolverCell::Unknown;
         }
     }
 
-    pub fn solution(&mut self) -> Option<Level> {
+    #[allow(dead_code)]
+    pub fn first_solution(mut self) -> Option<Level> {
+        self.max_solutions = 1;
         self.place_cell(Some((0, 0).into()));
 
-        if self.solved {
-            Some(Level {
-                grid: self.level.map(|cell, pos| Cell {
-                    kind: match cell {
-                        SolverCell::Wall => CellKind::Wall,
-                        SolverCell::Hallway => CellKind::Floor(CellFloor::Empty),
-                        SolverCell::Monster => CellKind::Floor(CellFloor::Monster),
-                        SolverCell::Treasure => CellKind::Floor(CellFloor::Treasure),
-                        SolverCell::Unknown => panic!("Unknown cell"),
-                    },
-                    position: pos,
-                }),
-            })
-        } else {
-            None
-        }
+        self.solutions.pop()
+    }
+
+    pub fn all_solutions(mut self) -> Vec<Level> {
+        self.max_solutions = usize::MAX;
+        self.place_cell(Some((0, 0).into()));
+
+        self.solutions
     }
 }
 
@@ -375,7 +538,47 @@ impl PartialEq for Level {
 #[test]
 fn test_solve_level_random() {
     let level = Level::random(8, 8);
-    let mut solver = Solver::new(&level);
-    let solution = solver.solution();
-    assert_eq!(solution, Some(level));
+    let solver = Solver::from_level(&level);
+    let solutions = solver.all_solutions();
+    assert!(
+        solutions.contains(&level),
+        "Level {level:?} not found in solutions: {solutions:?}"
+    );
+}
+
+#[test]
+fn test_solve_level_weird() {
+    let solver = Solver::try_from(
+        r#"
+  4 3 3 5 2 3 2 3
+4 ? ? M ? ? ? ? ?
+2 ? ? ? ? ? ? ? M
+3 M ? ? M ? ? ? ?
+5 ? ? ? ? ? ? ? M
+2 ? T ? ? ? ? ? ?
+2 ? ? ? ? ? ? ? ?
+1 ? ? ? ? ? ? ? ?
+6 ? ? ? ? ? M ? M
+"#,
+    )
+    .unwrap();
+    let solutions = solver.all_solutions();
+
+    let expected = Level::from(
+        &SolverLevel::try_from(
+            r#"
+##M#...#
+#....#.M
+M.#M#..#
+####..#M
+.T.#.#..
+.....#.#
+...#....
+#####M#M
+"#,
+        )
+        .unwrap(),
+    );
+
+    assert_eq!(solutions, vec![expected]);
 }
