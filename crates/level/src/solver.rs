@@ -103,7 +103,7 @@ impl TryFrom<&str> for Solver {
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         let mut lines = value.trim().lines();
         let Some(col_header) = lines.next() else {
-            return Err(format!("Column header not found"));
+            return Err("Column header not found".to_string());
         };
 
         let mut col_numbers: Vec<usize> = Vec::new();
@@ -332,7 +332,7 @@ impl std::fmt::Debug for Solver {
         for i in 0..self.level.width() {
             write!(f, "{}", self.col_numbers[i])?;
         }
-        writeln!(f, "")?;
+        writeln!(f)?;
 
         // Print rows, prefixed with row header
         assert_eq!(self.row_numbers.len(), level_rows.len());
@@ -345,6 +345,7 @@ impl std::fmt::Debug for Solver {
 }
 
 impl Solver {
+    #[allow(dead_code)]
     pub fn from_level(level: &Level) -> Self {
         let mut col_numbers = vec![0; level.width()];
         let mut row_numbers = vec![0; level.height()];
@@ -500,7 +501,7 @@ impl Solver {
             self.place_cell(self.level.next_pos(&pos));
             return;
         }
-        for cell in vec![SolverCell::Hallway, SolverCell::Wall] {
+        for cell in [SolverCell::Hallway, SolverCell::Wall] {
             if !self.check_quick_validity(pos, cell) {
                 continue;
             }
@@ -521,17 +522,12 @@ impl Solver {
         self.solutions.pop()
     }
 
+    #[allow(dead_code)]
     pub fn all_solutions(mut self) -> Vec<Level> {
         self.max_solutions = usize::MAX;
         self.place_cell(Some((0, 0).into()));
 
         self.solutions
-    }
-}
-
-impl PartialEq for Level {
-    fn eq(&self, other: &Self) -> bool {
-        self.grid == other.grid
     }
 }
 

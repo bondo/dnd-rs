@@ -90,7 +90,6 @@ impl<C> Grid<C> {
         neighbors
     }
 
-    #[cfg(test)]
     pub(crate) fn next_pos(&self, pos: &GridPos) -> Option<GridPos> {
         if pos.x + 1 < self.width {
             Some((pos.x + 1, pos.y).into())
@@ -101,7 +100,6 @@ impl<C> Grid<C> {
         }
     }
 
-    #[cfg(test)]
     pub(crate) fn count_row<F>(&self, y: usize, mut f: F) -> usize
     where
         F: FnMut(&C) -> bool,
@@ -109,7 +107,6 @@ impl<C> Grid<C> {
         (0..self.width).filter(|&x| f(&self[(x, y).into()])).count()
     }
 
-    #[cfg(test)]
     pub(crate) fn count_col<F>(&self, x: usize, mut f: F) -> usize
     where
         F: FnMut(&C) -> bool,

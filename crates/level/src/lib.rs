@@ -6,8 +6,8 @@ use gen::{GenCell, GenFloor, GenLevel};
 mod grid;
 use grid::{Grid, GridIterator, GridPos};
 
-#[cfg(test)]
-mod test;
+mod solver;
+pub use solver::Solver;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum CellFloor {
@@ -64,7 +64,7 @@ impl Debug for Level {
     }
 }
 
-#[derive(bevy::prelude::Resource, Clone)]
+#[derive(bevy::prelude::Resource, Clone, PartialEq)]
 pub struct Level {
     grid: Grid<Cell>,
 }
