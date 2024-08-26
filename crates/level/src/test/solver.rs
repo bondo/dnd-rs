@@ -582,3 +582,149 @@ M.#M#..#
 
     assert_eq!(solutions, vec![expected]);
 }
+
+// Source of levels: https://www.reddit.com/r/puzzles/comments/d72zg1/advanced_dungeons_and_diagrams_map_making_logic/
+
+#[test]
+fn test_solve_sample() {
+    let solver = Solver::try_from(
+        r#"
+  4 2 4 1 2 1
+3 ? ? ? ? ? T
+1 ? ? ? ? ? ?
+2 ? ? ? ? ? ?
+5 ? ? ? ? ? ?
+1 ? ? ? ? ? M
+2 M ? ? ? ? ?
+"#,
+    )
+    .unwrap();
+    let solutions = solver.all_solutions();
+
+    let expected = Level::from(
+        &SolverLevel::try_from(
+            r#"
+###..T
+#.....
+#.#...
+#.####
+....#M
+M##...
+"#,
+        )
+        .unwrap(),
+    );
+
+    assert_eq!(solutions, vec![expected]);
+}
+
+#[test]
+fn test_solve_tenaxxuss_gullet() {
+    let solver = Solver::try_from(
+        r#"
+  4 4 2 6 2 3 4 7
+7 ? ? ? ? ? M ? ?
+3 ? ? ? ? ? ? ? ?
+4 ? T ? ? ? ? ? ?
+1 ? ? ? ? ? ? ? ?
+7 ? ? ? ? ? ? ? ?
+1 M ? ? ? ? ? ? ?
+6 ? ? ? ? ? ? ? ?
+3 ? ? M ? ? ? ? M
+"#,
+    )
+    .unwrap();
+    let solutions = solver.all_solutions();
+
+    let expected = Level::from(
+        &SolverLevel::try_from(
+            r#"
+#####M##
+...#..##
+.T.#.###
+.......#
+######.#
+M......#
+##.#.###
+##M#...M
+"#,
+        )
+        .unwrap(),
+    );
+
+    assert_eq!(solutions, vec![expected]);
+}
+
+#[test]
+fn test_solve_the_twin_cities_of_the_dead() {
+    let solver = Solver::try_from(
+        r#"
+  1 3 1 5 3 4 3 5
+5 ? ? ? ? ? ? ? ?
+2 ? ? T ? T ? ? ?
+2 ? ? ? ? ? ? ? ?
+3 ? ? ? ? ? ? ? ?
+6 M ? ? ? ? ? ? ?
+0 ? ? ? ? ? ? ? ?
+6 ? ? ? ? ? ? ? ?
+1 ? ? ? ? M ? M ?
+"#,
+    )
+    .unwrap();
+    let solutions = solver.all_solutions();
+
+    let expected = Level::from(
+        &SolverLevel::try_from(
+            r#"
+...#####
+..T#T..#
+...#...#
+##.....#
+M#.#####
+........
+.######.
+....M#M.
+"#,
+        )
+        .unwrap(),
+    );
+
+    assert_eq!(solutions, vec![expected]);
+}
+
+#[test]
+fn test_solve_the_hive_of_great_sorrow() {
+    let solver = Solver::try_from(
+        r#"
+  3 6 0 5 4 0 6 3
+6 ? ? M ? ? M ? ?
+2 M ? ? ? ? ? ? M
+4 ? ? ? ? ? ? ? ?
+3 ? ? ? ? M ? ? ?
+2 ? ? ? ? ? ? ? ?
+4 ? ? ? ? ? ? ? ?
+2 M ? ? ? ? ? ? M
+4 ? ? ? ? ? ? ? ?
+"#,
+    )
+    .unwrap();
+    let solutions = solver.all_solutions();
+
+    let expected = Level::from(
+        &SolverLevel::try_from(
+            r#"
+##M##M##
+M#....#M
+.#.##.#.
+.#.#M.#.
+...##...
+##....##
+M..##..M
+##....##
+"#,
+        )
+        .unwrap(),
+    );
+
+    assert_eq!(solutions, vec![expected]);
+}
