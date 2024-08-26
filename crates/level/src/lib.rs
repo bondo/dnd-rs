@@ -9,6 +9,9 @@ use grid::{Grid, GridIterator, GridPos};
 mod recursive_solver;
 pub use recursive_solver::RecursiveSolver;
 
+mod iterative_solver;
+pub use iterative_solver::IterativeSolver;
+
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum CellFloor {
     Empty,
