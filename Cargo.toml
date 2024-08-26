@@ -15,11 +15,11 @@ bevy = { version = "0.14.1", default-features = false, features = [
     "x11",
 ] }
 criterion = { version = "0.5.1" }
+fastrand = { version = "2.1.1" }
 log = { version = "*", features = [
     "max_level_debug",
     "release_max_level_warn",
 ] }
-rand = { version = "0.8.5" }
 
 # Enable a small amount of optimization in the dev profile.
 [profile.dev]

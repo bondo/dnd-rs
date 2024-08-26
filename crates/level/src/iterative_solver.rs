@@ -517,7 +517,7 @@ impl IterativeSolver {
                     self.level[pos] = cell;
                     stack.push((self.level.next_pos(&pos), None));
                 }
-                // If pos is unknown, try all possibilities
+                // If cell at pos is unknown, try all possibilities
                 None => {
                     if self.level[pos] == SolverCell::Unknown {
                         stack.push((Some(pos), Some(SolverCell::Unknown)));

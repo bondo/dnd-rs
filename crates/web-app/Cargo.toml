@@ -12,6 +12,7 @@ default = ["console_error_panic_hook"]
 
 [dependencies]
 bevy = { workspace = true, features = ["webgl2"] }
+fastrand = { workspace = true, features = ["js"] }
 log.workspace = true
 dnd-rs-plugin = { path = "../plugin" }
 

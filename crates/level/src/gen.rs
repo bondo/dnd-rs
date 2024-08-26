@@ -1,5 +1,6 @@
-use rand::prelude::*;
 use std::fmt::Debug;
+
+use fastrand::Rng;
 
 use super::grid::{Grid, GridPos};
 
@@ -35,11 +36,11 @@ impl GenLevel {
         assert!(width >= 6);
         assert!(height >= 6);
 
-        let mut grid = Grid::new(width, height, GenCell::Any);
-        let mut rng = rand::thread_rng();
+        let mut grid = Grid::new(width as usize, height as usize, GenCell::Any);
+        let mut rng = Rng::new();
 
-        let treasure_room_x = rng.gen::<usize>() % (width - 2);
-        let treasure_room_y = rng.gen::<usize>() % (height - 2);
+        let treasure_room_x = rng.usize(0..width - 2);
+        let treasure_room_y = rng.usize(0..height - 2);
 
         // Fill treasure room with floor
         (treasure_room_x..treasure_room_x + 3).for_each(|x| {
@@ -48,8 +49,8 @@ impl GenLevel {
             });
         });
 
-        let treasure_x = rng.gen::<usize>() % 3 + treasure_room_x;
-        let treasure_y = rng.gen::<usize>() % 3 + treasure_room_y;
+        let treasure_x = rng.usize(0..3) + treasure_room_x;
+        let treasure_y = rng.usize(0..3) + treasure_room_y;
         grid[(treasure_x, treasure_y).into()] = GenCell::Floor(GenFloor::Treasure);
 
         let mut potential_exits: Vec<GridPos> = Vec::new();
@@ -120,7 +121,7 @@ impl GenLevel {
             grid[(treasure_room_x + 3, treasure_room_y + 3).into()] = GenCell::Wall;
         }
 
-        let exit = potential_exits[rng.gen_range(0..potential_exits.len())];
+        let exit = potential_exits[rng.usize(0..potential_exits.len())];
         grid[exit] = GenCell::Any;
 
         let mut work_queue = WorkQueue::new(rng);
@@ -145,12 +146,12 @@ impl GenLevel {
 }
 
 struct WorkQueue {
-    rng: ThreadRng,
+    rng: Rng,
     vec: Vec<GridPos>,
 }
 
 impl WorkQueue {
-    fn new(rng: ThreadRng) -> Self {
+    fn new(rng: Rng) -> Self {
         Self {
             rng,
             vec: Vec::new(),
@@ -170,7 +171,7 @@ impl WorkQueue {
             return None;
         }
 
-        let idx = self.rng.gen_range(0..self.vec.len());
+        let idx = self.rng.usize(0..self.vec.len());
         let p = self.vec.swap_remove(idx);
         Some(p)
     }
