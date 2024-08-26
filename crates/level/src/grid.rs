@@ -4,9 +4,9 @@ use std::{
 };
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub(super) struct GridPos {
-    pub(super) x: usize,
-    pub(super) y: usize,
+pub(crate) struct GridPos {
+    pub(crate) x: usize,
+    pub(crate) y: usize,
 }
 
 impl From<(usize, usize)> for GridPos {
@@ -15,7 +15,14 @@ impl From<(usize, usize)> for GridPos {
     }
 }
 
-pub(super) struct Grid<C> {
+impl Debug for GridPos {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "({}, {})", self.x, self.y)
+    }
+}
+
+#[derive(Clone, PartialEq, Eq)]
+pub(crate) struct Grid<C> {
     cells: Vec<C>,
     width: usize,
     height: usize,
@@ -36,7 +43,7 @@ impl<C> IndexMut<GridPos> for Grid<C> {
 }
 
 impl<C> Grid<C> {
-    pub(super) fn new(width: usize, height: usize, fill: C) -> Self
+    pub(crate) fn new(width: usize, height: usize, fill: C) -> Self
     where
         C: Clone,
     {
@@ -47,21 +54,26 @@ impl<C> Grid<C> {
         }
     }
 
-    pub(super) fn width(&self) -> usize {
+    pub(crate) fn width(&self) -> usize {
         self.width
     }
 
-    pub(super) fn height(&self) -> usize {
+    pub(crate) fn height(&self) -> usize {
         self.height
     }
 
-    pub(super) fn iter(&self) -> GridIterator<C> {
+    pub(crate) fn iter(&self) -> GridIterator<C> {
         GridIterator {
-            inner: self.cells.iter(),
+            inner: Box::new(
+                self.cells
+                    .iter()
+                    .enumerate()
+                    .map(|(idx, c)| (c, (idx % self.width, idx / self.width).into())),
+            ),
         }
     }
 
-    pub(super) fn neighbors(&self, GridPos { x, y }: GridPos) -> Vec<GridPos> {
+    pub(crate) fn neighbors(&self, GridPos { x, y }: GridPos) -> Vec<GridPos> {
         let mut neighbors: Vec<GridPos> = Vec::new();
         if x > 0 {
             neighbors.push((x - 1, y).into());
@@ -78,7 +90,36 @@ impl<C> Grid<C> {
         neighbors
     }
 
-    pub(super) fn count_neighbors<F>(&self, p: GridPos, mut f: F) -> usize
+    #[cfg(test)]
+    pub(crate) fn next_pos(&self, pos: &GridPos) -> Option<GridPos> {
+        if pos.x + 1 < self.width {
+            Some((pos.x + 1, pos.y).into())
+        } else if pos.y + 1 < self.height {
+            Some((0, pos.y + 1).into())
+        } else {
+            None
+        }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn count_row<F>(&self, y: usize, mut f: F) -> usize
+    where
+        F: FnMut(&C) -> bool,
+    {
+        (0..self.width).filter(|&x| f(&self[(x, y).into()])).count()
+    }
+
+    #[cfg(test)]
+    pub(crate) fn count_col<F>(&self, x: usize, mut f: F) -> usize
+    where
+        F: FnMut(&C) -> bool,
+    {
+        (0..self.height)
+            .filter(|&y| f(&self[(x, y).into()]))
+            .count()
+    }
+
+    pub(crate) fn count_neighbors<F>(&self, p: GridPos, mut f: F) -> usize
     where
         F: FnMut(&C) -> bool,
     {
@@ -88,7 +129,7 @@ impl<C> Grid<C> {
             .count()
     }
 
-    pub(super) fn filtered_neighbors<F>(&self, p: GridPos, mut f: F) -> Vec<GridPos>
+    pub(crate) fn filtered_neighbors<F>(&self, p: GridPos, mut f: F) -> Vec<GridPos>
     where
         F: FnMut(&C) -> bool,
     {
@@ -98,18 +139,13 @@ impl<C> Grid<C> {
             .collect()
     }
 
-    pub(super) fn map<F, T>(&self, mut f: F) -> Grid<T>
+    pub(crate) fn map<F, T>(&self, mut f: F) -> Grid<T>
     where
         F: FnMut(&C, GridPos) -> T,
         T: Clone,
     {
         Grid {
-            cells: self
-                .cells
-                .iter()
-                .enumerate()
-                .map(|(idx, c)| f(c, (idx % self.width, idx / self.width).into()))
-                .collect(),
+            cells: self.iter().map(|(c, p)| f(c, p)).collect::<Vec<T>>(),
             width: self.width,
             height: self.height,
         }
@@ -128,14 +164,14 @@ impl<C: Debug> Debug for Grid<C> {
     }
 }
 
-pub(super) struct GridIterator<'a, C> {
-    inner: std::slice::Iter<'a, C>,
+pub(crate) struct GridIterator<'a, C> {
+    inner: Box<dyn Iterator<Item = (&'a C, GridPos)> + 'a>,
 }
 
-impl<'a, C: Copy> Iterator for GridIterator<'a, C> {
-    type Item = C;
+impl<'a, C> Iterator for GridIterator<'a, C> {
+    type Item = (&'a C, GridPos);
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.inner.next().copied()
+        self.inner.next()
     }
 }

@@ -6,6 +6,9 @@ use gen::{GenCell, GenFloor, GenLevel};
 mod grid;
 use grid::{Grid, GridIterator, GridPos};
 
+#[cfg(test)]
+mod test;
+
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum CellFloor {
     Empty,
@@ -61,7 +64,7 @@ impl Debug for Level {
     }
 }
 
-#[derive(bevy::prelude::Resource)]
+#[derive(bevy::prelude::Resource, Clone)]
 pub struct Level {
     grid: Grid<Cell>,
 }
@@ -70,11 +73,11 @@ pub struct LevelIterator<'a> {
     inner: GridIterator<'a, Cell>,
 }
 
-impl Iterator for LevelIterator<'_> {
-    type Item = Cell;
+impl<'a> Iterator for LevelIterator<'a> {
+    type Item = &'a Cell;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.inner.next()
+        self.inner.next().map(|(c, _)| c)
     }
 }
 
