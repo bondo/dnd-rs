@@ -487,55 +487,46 @@ impl IterativeSolver {
         true
     }
 
-    // fn place_cell_recursive(&mut self, pos: Option<GridPos>) {
-    //     if self.solutions.len() >= self.max_solutions {
-    //         return;
-    //     }
-    //     let Some(pos) = pos else {
-    //         if self.check_full_validity() {
-    //             self.solutions.push((&self.level).into())
-    //         }
-    //         return;
-    //     };
-    //     if self.level[pos] != SolverCell::Unknown {
-    //         self.place_cell_recursive(self.level.next_pos(&pos));
-    //         return;
-    //     }
-    //     for cell in [SolverCell::Hallway, SolverCell::Wall] {
-    //         if !self.check_quick_validity(pos, cell) {
-    //             continue;
-    //         }
-    //         self.level[pos] = cell;
-    //         self.place_cell_recursive(self.level.next_pos(&pos));
-    //         if self.solutions.len() >= self.max_solutions {
-    //             return;
-    //         }
-    //         self.level[pos] = SolverCell::Unknown;
-    //     }
-    // }
-
     fn solve(&mut self) {
-        let mut stack: Vec<(GridPos, SolverCell)> = Vec::new();
-        stack.push(((0, 0).into(), SolverCell::Unknown));
+        let mut stack: Vec<(Option<GridPos>, Option<SolverCell>)> =
+            Vec::with_capacity(self.level.width() * self.level.height() * 2);
+
+        stack.push((Some((0, 0).into()), None));
 
         while let Some((pos, cell)) = stack.pop() {
-            if self.solutions.len() >= self.max_solutions {
-                return;
-            }
-            if cell != SolverCell::Unknown {
-                if !self.check_quick_validity(pos, cell) {
-                    continue;
-                }
-                self.level[pos] = cell;
-                if let Some(next_pos) = self.level.next_pos(&pos) {
-                    stack.push((next_pos, SolverCell::Unknown));
-                } else if self.check_full_validity() {
+            let Some(pos) = pos else {
+                if self.check_full_validity() {
                     self.solutions.push((&self.level).into());
+
+                    if self.solutions.len() >= self.max_solutions {
+                        return;
+                    }
                 }
-                self.level[pos] = SolverCell::Unknown;
-            } else {
-                stack.push((pos, SolverCell::Wall));
-                stack.push((pos, SolverCell::Hallway));
+                continue;
+            };
+            match cell {
+                // Backtrack
+                Some(SolverCell::Unknown) => {
+                    self.level[pos] = SolverCell::Unknown;
+                }
+                // Try cell
+                Some(cell) => {
+                    if !self.check_quick_validity(pos, cell) {
+                        continue;
+                    }
+                    self.level[pos] = cell;
+                    stack.push((self.level.next_pos(&pos), None));
+                }
+                // If pos is unknown, try all possibilities
+                None => {
+                    if self.level[pos] == SolverCell::Unknown {
+                        stack.push((Some(pos), Some(SolverCell::Unknown)));
+                        stack.push((Some(pos), Some(SolverCell::Wall)));
+                        stack.push((Some(pos), Some(SolverCell::Hallway)));
+                    } else {
+                        stack.push((self.level.next_pos(&pos), None));
+                    }
+                }
             }
         }
     }

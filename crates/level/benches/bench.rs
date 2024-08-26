@@ -10,14 +10,14 @@ fn run_level_generation_benchmark(c: &mut Criterion) {
 }
 
 fn run_recursive_solver_benchmark(c: &mut Criterion) {
-    c.bench_function("solve 8x8 level", |b| {
+    c.bench_function("solve 8x8 level (recursive)", |b| {
         let level = Level::random(8, 8);
         b.iter(|| RecursiveSolver::from_level(&level).first_solution())
     });
 }
 
 fn run_iterative_solver_benchmark(c: &mut Criterion) {
-    c.bench_function("solve 8x8 level", |b| {
+    c.bench_function("solve 8x8 level (iterative)", |b| {
         let level = Level::random(8, 8);
         b.iter(|| IterativeSolver::from_level(&level).first_solution())
     });
