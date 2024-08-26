@@ -37,8 +37,6 @@ const CELL_SIZE: Vec2 = Vec2::new(UNIT_SIZE - BORDER_WIDTH, UNIT_SIZE - BORDER_W
 // - Handle level completed
 // - Add interface settings to change level size
 // - Add Android support
-// - Add solver
-// - Add property based testing (unique solution, proper layout)
 
 pub struct DungeonsAndDiagramsPlugin;
 
