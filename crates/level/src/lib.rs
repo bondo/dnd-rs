@@ -6,8 +6,8 @@ use gen::{GenCell, GenFloor, GenLevel};
 mod grid;
 use grid::{Grid, GridIterator, GridPos};
 
-mod solver;
-pub use solver::Solver;
+mod recursive_solver;
+pub use recursive_solver::RecursiveSolver;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum CellFloor {

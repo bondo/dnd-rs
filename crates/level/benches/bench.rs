@@ -1,7 +1,7 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 use std::hint::black_box;
 
-use dnd_rs_level::{Level, Solver};
+use dnd_rs_level::{Level, RecursiveSolver};
 
 fn run_level_generation_benchmark(c: &mut Criterion) {
     c.bench_function("generate 50x50 level", |b| {
@@ -9,10 +9,10 @@ fn run_level_generation_benchmark(c: &mut Criterion) {
     });
 }
 
-fn run_solver_benchmark(c: &mut Criterion) {
+fn run_recursive_solver_benchmark(c: &mut Criterion) {
     c.bench_function("solve 8x8 level", |b| {
         let level = Level::random(8, 8);
-        b.iter(|| Solver::from_level(&level).first_solution())
+        b.iter(|| RecursiveSolver::from_level(&level).first_solution())
     });
 }
 

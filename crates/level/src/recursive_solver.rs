@@ -97,7 +97,7 @@ impl TryFrom<&str> for SolverLevel {
     }
 }
 
-impl TryFrom<&str> for Solver {
+impl TryFrom<&str> for RecursiveSolver {
     type Error = String;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
@@ -155,7 +155,7 @@ impl TryFrom<&str> for Solver {
             }
         }
 
-        Ok(Solver::from_parts(grid, row_numbers, col_numbers))
+        Ok(RecursiveSolver::from_parts(grid, row_numbers, col_numbers))
     }
 }
 
@@ -311,7 +311,7 @@ impl SolverLevel {
     }
 }
 
-pub struct Solver {
+pub struct RecursiveSolver {
     level: SolverLevel,
     row_numbers: Vec<usize>,
     col_numbers: Vec<usize>,
@@ -320,7 +320,7 @@ pub struct Solver {
     solutions: Vec<Level>,
 }
 
-impl std::fmt::Debug for Solver {
+impl std::fmt::Debug for RecursiveSolver {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "Solver (solutions = {})", self.solutions.len())?;
 
@@ -344,7 +344,7 @@ impl std::fmt::Debug for Solver {
     }
 }
 
-impl Solver {
+impl RecursiveSolver {
     #[allow(dead_code)]
     pub fn from_level(level: &Level) -> Self {
         let mut col_numbers = vec![0; level.width()];
@@ -531,196 +531,201 @@ impl Solver {
     }
 }
 
-#[test]
-fn test_solve_level_random() {
-    let level = Level::random(8, 8);
-    let solver = Solver::from_level(&level);
-    let solutions = solver.all_solutions();
-    assert!(
-        solutions.contains(&level),
-        "Level {level:?} not found in solutions: {solutions:?}"
-    );
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-#[test]
-fn test_solve_level_weird() {
-    let solver = Solver::try_from(
-        r#"
-  4 3 3 5 2 3 2 3
-4 ? ? M ? ? ? ? ?
-2 ? ? ? ? ? ? ? M
-3 M ? ? M ? ? ? ?
-5 ? ? ? ? ? ? ? M
-2 ? T ? ? ? ? ? ?
-2 ? ? ? ? ? ? ? ?
-1 ? ? ? ? ? ? ? ?
-6 ? ? ? ? ? M ? M
-"#,
-    )
-    .unwrap();
-    let solutions = solver.all_solutions();
+    #[test]
+    fn test_solve_level_random() {
+        let level = Level::random(8, 8);
+        let solver = RecursiveSolver::from_level(&level);
+        let solutions = solver.all_solutions();
+        assert!(
+            solutions.contains(&level),
+            "Level {level:?} not found in solutions: {solutions:?}"
+        );
+    }
 
-    let expected = Level::from(
-        &SolverLevel::try_from(
+    #[test]
+    fn test_solve_level_weird() {
+        let solver = RecursiveSolver::try_from(
             r#"
-##M#...#
-#....#.M
-M.#M#..#
-####..#M
-.T.#.#..
-.....#.#
-...#....
-#####M#M
-"#,
+      4 3 3 5 2 3 2 3
+    4 ? ? M ? ? ? ? ?
+    2 ? ? ? ? ? ? ? M
+    3 M ? ? M ? ? ? ?
+    5 ? ? ? ? ? ? ? M
+    2 ? T ? ? ? ? ? ?
+    2 ? ? ? ? ? ? ? ?
+    1 ? ? ? ? ? ? ? ?
+    6 ? ? ? ? ? M ? M
+    "#,
         )
-        .unwrap(),
-    );
+        .unwrap();
+        let solutions = solver.all_solutions();
 
-    assert_eq!(solutions, vec![expected]);
-}
+        let expected = Level::from(
+            &SolverLevel::try_from(
+                r#"
+    ##M#...#
+    #....#.M
+    M.#M#..#
+    ####..#M
+    .T.#.#..
+    .....#.#
+    ...#....
+    #####M#M
+    "#,
+            )
+            .unwrap(),
+        );
 
-// Source of levels: https://www.reddit.com/r/puzzles/comments/d72zg1/advanced_dungeons_and_diagrams_map_making_logic/
+        assert_eq!(solutions, vec![expected]);
+    }
 
-#[test]
-fn test_solve_sample() {
-    let solver = Solver::try_from(
-        r#"
-  4 2 4 1 2 1
-3 ? ? ? ? ? T
-1 ? ? ? ? ? ?
-2 ? ? ? ? ? ?
-5 ? ? ? ? ? ?
-1 ? ? ? ? ? M
-2 M ? ? ? ? ?
-"#,
-    )
-    .unwrap();
-    let solutions = solver.all_solutions();
+    // Source of levels: https://www.reddit.com/r/puzzles/comments/d72zg1/advanced_dungeons_and_diagrams_map_making_logic/
 
-    let expected = Level::from(
-        &SolverLevel::try_from(
+    #[test]
+    fn test_solve_sample() {
+        let solver = RecursiveSolver::try_from(
             r#"
-###..T
-#.....
-#.#...
-#.####
-....#M
-M##...
-"#,
+      4 2 4 1 2 1
+    3 ? ? ? ? ? T
+    1 ? ? ? ? ? ?
+    2 ? ? ? ? ? ?
+    5 ? ? ? ? ? ?
+    1 ? ? ? ? ? M
+    2 M ? ? ? ? ?
+    "#,
         )
-        .unwrap(),
-    );
+        .unwrap();
+        let solutions = solver.all_solutions();
 
-    assert_eq!(solutions, vec![expected]);
-}
+        let expected = Level::from(
+            &SolverLevel::try_from(
+                r#"
+    ###..T
+    #.....
+    #.#...
+    #.####
+    ....#M
+    M##...
+    "#,
+            )
+            .unwrap(),
+        );
 
-#[test]
-fn test_solve_tenaxxuss_gullet() {
-    let solver = Solver::try_from(
-        r#"
-  4 4 2 6 2 3 4 7
-7 ? ? ? ? ? M ? ?
-3 ? ? ? ? ? ? ? ?
-4 ? T ? ? ? ? ? ?
-1 ? ? ? ? ? ? ? ?
-7 ? ? ? ? ? ? ? ?
-1 M ? ? ? ? ? ? ?
-6 ? ? ? ? ? ? ? ?
-3 ? ? M ? ? ? ? M
-"#,
-    )
-    .unwrap();
-    let solutions = solver.all_solutions();
+        assert_eq!(solutions, vec![expected]);
+    }
 
-    let expected = Level::from(
-        &SolverLevel::try_from(
+    #[test]
+    fn test_solve_tenaxxuss_gullet() {
+        let solver = RecursiveSolver::try_from(
             r#"
-#####M##
-...#..##
-.T.#.###
-.......#
-######.#
-M......#
-##.#.###
-##M#...M
-"#,
+      4 4 2 6 2 3 4 7
+    7 ? ? ? ? ? M ? ?
+    3 ? ? ? ? ? ? ? ?
+    4 ? T ? ? ? ? ? ?
+    1 ? ? ? ? ? ? ? ?
+    7 ? ? ? ? ? ? ? ?
+    1 M ? ? ? ? ? ? ?
+    6 ? ? ? ? ? ? ? ?
+    3 ? ? M ? ? ? ? M
+    "#,
         )
-        .unwrap(),
-    );
+        .unwrap();
+        let solutions = solver.all_solutions();
 
-    assert_eq!(solutions, vec![expected]);
-}
+        let expected = Level::from(
+            &SolverLevel::try_from(
+                r#"
+    #####M##
+    ...#..##
+    .T.#.###
+    .......#
+    ######.#
+    M......#
+    ##.#.###
+    ##M#...M
+    "#,
+            )
+            .unwrap(),
+        );
 
-#[test]
-fn test_solve_the_twin_cities_of_the_dead() {
-    let solver = Solver::try_from(
-        r#"
-  1 3 1 5 3 4 3 5
-5 ? ? ? ? ? ? ? ?
-2 ? ? T ? T ? ? ?
-2 ? ? ? ? ? ? ? ?
-3 ? ? ? ? ? ? ? ?
-6 M ? ? ? ? ? ? ?
-0 ? ? ? ? ? ? ? ?
-6 ? ? ? ? ? ? ? ?
-1 ? ? ? ? M ? M ?
-"#,
-    )
-    .unwrap();
-    let solutions = solver.all_solutions();
+        assert_eq!(solutions, vec![expected]);
+    }
 
-    let expected = Level::from(
-        &SolverLevel::try_from(
+    #[test]
+    fn test_solve_the_twin_cities_of_the_dead() {
+        let solver = RecursiveSolver::try_from(
             r#"
-...#####
-..T#T..#
-...#...#
-##.....#
-M#.#####
-........
-.######.
-....M#M.
-"#,
+      1 3 1 5 3 4 3 5
+    5 ? ? ? ? ? ? ? ?
+    2 ? ? T ? T ? ? ?
+    2 ? ? ? ? ? ? ? ?
+    3 ? ? ? ? ? ? ? ?
+    6 M ? ? ? ? ? ? ?
+    0 ? ? ? ? ? ? ? ?
+    6 ? ? ? ? ? ? ? ?
+    1 ? ? ? ? M ? M ?
+    "#,
         )
-        .unwrap(),
-    );
+        .unwrap();
+        let solutions = solver.all_solutions();
 
-    assert_eq!(solutions, vec![expected]);
-}
+        let expected = Level::from(
+            &SolverLevel::try_from(
+                r#"
+    ...#####
+    ..T#T..#
+    ...#...#
+    ##.....#
+    M#.#####
+    ........
+    .######.
+    ....M#M.
+    "#,
+            )
+            .unwrap(),
+        );
 
-#[test]
-fn test_solve_the_hive_of_great_sorrow() {
-    let solver = Solver::try_from(
-        r#"
-  3 6 0 5 4 0 6 3
-6 ? ? M ? ? M ? ?
-2 M ? ? ? ? ? ? M
-4 ? ? ? ? ? ? ? ?
-3 ? ? ? ? M ? ? ?
-2 ? ? ? ? ? ? ? ?
-4 ? ? ? ? ? ? ? ?
-2 M ? ? ? ? ? ? M
-4 ? ? ? ? ? ? ? ?
-"#,
-    )
-    .unwrap();
-    let solutions = solver.all_solutions();
+        assert_eq!(solutions, vec![expected]);
+    }
 
-    let expected = Level::from(
-        &SolverLevel::try_from(
+    #[test]
+    fn test_solve_the_hive_of_great_sorrow() {
+        let solver = RecursiveSolver::try_from(
             r#"
-##M##M##
-M#....#M
-.#.##.#.
-.#.#M.#.
-...##...
-##....##
-M..##..M
-##....##
-"#,
+      3 6 0 5 4 0 6 3
+    6 ? ? M ? ? M ? ?
+    2 M ? ? ? ? ? ? M
+    4 ? ? ? ? ? ? ? ?
+    3 ? ? ? ? M ? ? ?
+    2 ? ? ? ? ? ? ? ?
+    4 ? ? ? ? ? ? ? ?
+    2 M ? ? ? ? ? ? M
+    4 ? ? ? ? ? ? ? ?
+    "#,
         )
-        .unwrap(),
-    );
+        .unwrap();
+        let solutions = solver.all_solutions();
 
-    assert_eq!(solutions, vec![expected]);
+        let expected = Level::from(
+            &SolverLevel::try_from(
+                r#"
+    ##M##M##
+    M#....#M
+    .#.##.#.
+    .#.#M.#.
+    ...##...
+    ##....##
+    M..##..M
+    ##....##
+    "#,
+            )
+            .unwrap(),
+        );
+
+        assert_eq!(solutions, vec![expected]);
+    }
 }
