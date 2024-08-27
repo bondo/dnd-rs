@@ -316,13 +316,12 @@ pub struct Solver {
     row_numbers: Vec<usize>,
     col_numbers: Vec<usize>,
     treasures: Vec<GridPos>,
-    max_solutions: usize,
-    solutions: Vec<Level>,
+    stack: Vec<(Option<GridPos>, Option<SolverCell>)>,
 }
 
 impl std::fmt::Debug for Solver {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "Solver (solutions = {})", self.solutions.len())?;
+        writeln!(f, "Solver")?;
 
         let level = format!("{:?}", self.level);
         let level_rows = level.trim().split('\n').collect::<Vec<_>>();
@@ -363,14 +362,18 @@ impl Solver {
 
     fn from_parts(level: SolverLevel, row_numbers: Vec<usize>, col_numbers: Vec<usize>) -> Self {
         let treasures = level.find_treasures();
+        let width = level.width();
+        let height = level.height();
+
+        let mut stack = Vec::with_capacity(width * height * 2);
+        stack.push((Some((0, 0).into()), None));
 
         Self {
             level,
             row_numbers,
             col_numbers,
             treasures,
-            max_solutions: 0,
-            solutions: Vec::new(),
+            stack,
         }
     }
 
@@ -493,20 +496,25 @@ impl Solver {
         true
     }
 
-    fn solve(&mut self) {
-        let mut stack: Vec<(Option<GridPos>, Option<SolverCell>)> =
-            Vec::with_capacity(self.level.width() * self.level.height() * 2);
+    #[allow(dead_code)]
+    pub fn first_solution(mut self) -> Option<Level> {
+        self.next()
+    }
 
-        stack.push((Some((0, 0).into()), None));
+    #[allow(dead_code)]
+    pub fn all_solutions(self) -> Vec<Level> {
+        self.collect()
+    }
+}
 
-        while let Some((pos, cell)) = stack.pop() {
+impl Iterator for Solver {
+    type Item = Level;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        while let Some((pos, cell)) = self.stack.pop() {
             let Some(pos) = pos else {
                 if self.check_full_validity() {
-                    self.solutions.push((&self.level).into());
-
-                    if self.solutions.len() >= self.max_solutions {
-                        return;
-                    }
+                    return Some((&self.level).into());
                 }
                 continue;
             };
@@ -521,36 +529,22 @@ impl Solver {
                         continue;
                     }
                     self.level[pos] = cell;
-                    stack.push((self.level.next_pos(&pos), None));
+                    self.stack.push((self.level.next_pos(&pos), None));
                 }
                 // If cell at pos is unknown, try all possibilities
                 None => {
                     if self.level[pos] == SolverCell::Unknown {
-                        stack.push((Some(pos), Some(SolverCell::Unknown)));
-                        stack.push((Some(pos), Some(SolverCell::Wall)));
-                        stack.push((Some(pos), Some(SolverCell::Hallway)));
+                        self.stack.push((Some(pos), Some(SolverCell::Unknown)));
+                        self.stack.push((Some(pos), Some(SolverCell::Wall)));
+                        self.stack.push((Some(pos), Some(SolverCell::Hallway)));
                     } else {
-                        stack.push((self.level.next_pos(&pos), None));
+                        self.stack.push((self.level.next_pos(&pos), None));
                     }
                 }
             }
         }
-    }
 
-    #[allow(dead_code)]
-    pub fn first_solution(mut self) -> Option<Level> {
-        self.max_solutions = 1;
-        self.solve();
-
-        self.solutions.pop()
-    }
-
-    #[allow(dead_code)]
-    pub fn all_solutions(mut self) -> Vec<Level> {
-        self.max_solutions = usize::MAX;
-        self.solve();
-
-        self.solutions
+        None
     }
 }
 

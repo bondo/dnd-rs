@@ -36,7 +36,7 @@ impl GenLevel {
         assert!(width >= 6);
         assert!(height >= 6);
 
-        let mut grid = Grid::new(width as usize, height as usize, GenCell::Any);
+        let mut grid = Grid::new(width, height, GenCell::Any);
         let mut rng = Rng::new();
 
         let treasure_room_x = rng.usize(0..width - 2);
