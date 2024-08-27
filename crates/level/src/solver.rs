@@ -344,7 +344,6 @@ impl std::fmt::Debug for Solver {
 }
 
 impl Solver {
-    #[allow(dead_code)]
     pub fn from_level(level: &Level) -> Self {
         let mut col_numbers = vec![0; level.width()];
         let mut row_numbers = vec![0; level.height()];
@@ -496,12 +495,10 @@ impl Solver {
         true
     }
 
-    #[allow(dead_code)]
     pub fn first_solution(mut self) -> Option<Level> {
         self.next()
     }
 
-    #[allow(dead_code)]
     pub fn all_solutions(self) -> Vec<Level> {
         self.collect()
     }
@@ -592,6 +589,45 @@ M.#M#..#
 .....#.#
 ...#....
 #####M#M
+"#,
+            )
+            .unwrap(),
+        );
+
+        assert_eq!(solutions, vec![expected]);
+    }
+
+    #[test]
+    fn test_solve_level_nimble() {
+        // Source of example: https://github.com/MischaU8/dungeons_diagrams/tree/bf29a0454aec28476ac80286e130feeaa4081dec?tab=readme-ov-file#usage
+
+        let solver = Solver::try_from(
+            r#"
+  1 4 2 7 0 4 4 4
+3 ? ? ? ? ? ? ? ?
+2 ? ? ? ? ? ? ? M
+5 ? ? M ? ? ? ? ?
+3 ? ? ? ? ? ? ? M
+4 ? ? ? ? ? ? ? ?
+1 ? T ? ? ? ? ? M
+4 ? ? ? ? ? ? ? ?
+4 ? ? ? ? ? ? ? M
+"#,
+        )
+        .unwrap();
+        let solutions = solver.all_solutions();
+
+        let expected = Level::from(
+            &SolverLevel::try_from(
+                r#"
+.....###
+.#.#...M
+.#M#.###
+.###...M
+...#.###
+.T.#...M
+...#.###
+####...M
 "#,
             )
             .unwrap(),

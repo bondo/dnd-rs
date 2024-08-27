@@ -24,6 +24,28 @@ fn run_solver_benchmarks(c: &mut Criterion) {
             BatchSize::SmallInput,
         );
     });
+
+    // Compare to https://github.com/MischaU8/dungeons_diagrams/tree/bf29a0454aec28476ac80286e130feeaa4081dec?tab=readme-ov-file#usage
+    c.bench_function("solve nimble example", |b| {
+        b.iter(|| {
+            Solver::try_from(black_box(
+                r#"
+  1 4 2 7 0 4 4 4
+3 ? ? ? ? ? ? ? ?
+2 ? ? ? ? ? ? ? M
+5 ? ? M ? ? ? ? ?
+3 ? ? ? ? ? ? ? M
+4 ? ? ? ? ? ? ? ?
+1 ? T ? ? ? ? ? M
+4 ? ? ? ? ? ? ? ?
+4 ? ? ? ? ? ? ? M
+   "#,
+            ))
+            .unwrap()
+            .first_solution()
+            .unwrap()
+        });
+    });
 }
 
 criterion_group!(
