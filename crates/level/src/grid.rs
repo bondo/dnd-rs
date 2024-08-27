@@ -73,7 +73,7 @@ impl<C> Grid<C> {
         &self,
         GridPos { x, y }: GridPos,
     ) -> impl Iterator<Item = GridPos> + use<'_, C> {
-        vec![(-1, 0), (0, -1), (1, 0), (0, 1)]
+        [(-1, 0), (0, -1), (1, 0), (0, 1)]
             .into_iter()
             .filter_map(move |(dx, dy)| {
                 let nx = x as isize + dx;
