@@ -1,6 +1,7 @@
-use std::{fmt::Debug, time::Instant};
+use std::fmt::Debug;
 
 mod gen;
+use bevy::log::info;
 use gen::{GenCell, GenFloor, GenLevel};
 
 mod grid;
@@ -75,28 +76,46 @@ impl Level {
     }
 
     pub fn random_unique_solution(width: usize, height: usize) -> Self {
-        let start = Instant::now();
+        let start = chrono::Utc::now();
         let level = loop {
-            let level_start = Instant::now();
+            let level_start = chrono::Utc::now();
             let level = Level::random(width, height);
-            println!("Generated level in {:?}", level_start.elapsed());
+            info!(
+                "Generated level in {:?}",
+                chrono::Utc::now()
+                    .signed_duration_since(level_start)
+                    .to_std()
+                    .unwrap()
+            );
 
-            let solver_start = Instant::now();
+            let solver_start = chrono::Utc::now();
             let mut solver = Solver::from_level(&level);
             let Some(_) = solver.next() else {
                 panic!("Generated level without solution:\n{:?}", level);
             };
             let is_unique = solver.next().is_none();
-            println!("Solved level in {:?}", solver_start.elapsed());
+            info!(
+                "Solved level in {:?}",
+                chrono::Utc::now()
+                    .signed_duration_since(solver_start)
+                    .to_std()
+                    .unwrap()
+            );
 
             if is_unique {
-                println!("Level has unique solution");
+                info!("Level has unique solution");
                 break level;
             }
 
-            println!("Level has multiple solutions");
+            info!("Level has multiple solutions");
         };
-        println!("Generated unique level in {:?}", start.elapsed());
+        info!(
+            "Generated unique level in {:?}",
+            chrono::Utc::now()
+                .signed_duration_since(start)
+                .to_std()
+                .unwrap()
+        );
         level
     }
 
