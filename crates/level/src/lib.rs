@@ -130,6 +130,10 @@ impl Level {
     pub fn height(&self) -> usize {
         self.grid.height()
     }
+
+    pub fn is_wall(&self, x: usize, y: usize) -> bool {
+        self.grid[(x, y).into()].has_wall()
+    }
 }
 
 impl From<GenLevel> for Level {

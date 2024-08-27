@@ -34,7 +34,6 @@ const CELL_SIZE: Vec2 = Vec2::new(UNIT_SIZE - BORDER_WIDTH, UNIT_SIZE - BORDER_W
 // TODO:
 // - Handle long press events like right click
 // - Add indicator when monster is in a blind alley
-// - Handle level completed
 // - Add interface settings to change level size
 // - Add Android support
 
@@ -45,7 +44,9 @@ impl Plugin for DungeonsAndDiagramsPlugin {
         let level = Level::random_unique_solution(8, 8);
         // println!("\nCurrent level:\n{:?}", level);
 
-        app.insert_resource(level)
+        app.init_state::<AppState>()
+            .insert_resource(level)
+            .insert_resource(RandomSource(fastrand::Rng::new()))
             .add_systems(Startup, setup)
             .add_systems(
                 Update,
@@ -55,10 +56,24 @@ impl Plugin for DungeonsAndDiagramsPlugin {
                     handle_touch,
                     update_row_header_colors,
                     update_column_header_colors,
-                ),
-            );
+                    check_level_completed,
+                )
+                    .run_if(in_state(AppState::Playing)),
+            )
+            .add_systems(OnEnter(AppState::Won), handle_enter_won)
+            .add_systems(OnExit(AppState::Won), handle_exit_won);
     }
 }
+
+#[derive(Debug, Default, Clone, Copy, Eq, PartialEq, Hash, States)]
+enum AppState {
+    #[default]
+    Playing,
+    Won,
+}
+
+#[derive(Resource)]
+struct RandomSource(fastrand::Rng);
 
 #[derive(Component)]
 struct MainCamera;
@@ -446,4 +461,59 @@ fn viewport_to_world_position(
 ) -> Option<Vec2> {
     let (camera, camera_transform) = q_camera.single();
     camera.viewport_to_world_2d(camera_transform, position)
+}
+
+#[derive(Component)]
+struct Confetti;
+
+// Display confetti when level is completed
+fn check_level_completed(
+    mut next_state: ResMut<NextState<AppState>>,
+    q_walls: Query<(&Row, &Column), With<Wall>>,
+    level: Res<Level>,
+) {
+    // TODO: Check if level is completed
+    let is_completed = q_walls.iter().count() == level.iter().filter(|c| c.has_wall()).count()
+        && q_walls.iter().all(|(r, c)| level.is_wall(c.0, r.0));
+    if is_completed {
+        info!("Level completed!");
+        next_state.set(AppState::Won);
+    }
+}
+
+fn handle_enter_won(mut commands: Commands, mut rnd: ResMut<RandomSource>, level: Res<Level>) {
+    let width = (level.width() as f32 + 1.0) * UNIT_SIZE + PADDING_LEFT + PADDING_RIGHT;
+    let height = (level.height() as f32 + 1.0) * UNIT_SIZE + PADDING_TOP + PADDING_BOTTOM;
+
+    // spawn confetti
+    for _ in 0..100 {
+        let x = rnd.0.f32() * width;
+        let y = rnd.0.f32() * height;
+        let color = Color::srgb(rnd.0.f32(), rnd.0.f32(), rnd.0.f32());
+        commands.spawn((
+            Confetti,
+            SpriteBundle {
+                transform: Transform {
+                    translation: Vec3::new(x, y, 200.0),
+                    scale: Vec3::splat(UNIT_SIZE / 2.0),
+                    ..Default::default()
+                },
+                sprite: Sprite {
+                    color,
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+        ));
+    }
+
+    // TODO: Animate confetti
+
+    // TODO: Spawn some text and button to restart
+}
+
+fn handle_exit_won(mut commands: Commands, q_confetti: Query<Entity, With<Confetti>>) {
+    for entity in q_confetti.iter() {
+        commands.entity(entity).despawn();
+    }
 }

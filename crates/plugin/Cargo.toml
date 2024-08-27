@@ -6,5 +6,6 @@ authors.workspace = true
 
 [dependencies]
 bevy.workspace = true
+fastrand.workspace = true
 log.workspace = true
 dnd-rs-level = { path = "../level" }
