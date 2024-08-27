@@ -598,6 +598,43 @@ M.#M#..#
     }
 
     #[test]
+    fn test_solve_level_weird2() {
+        let solver = Solver::try_from(
+            r#"
+  2 2 2 4 2 3 3 2
+1 ? ? ? ? ? ? ? ?
+2 ? ? ? ? ? ? ? ?
+2 ? ? T ? ? ? ? ?
+6 ? ? ? ? ? ? ? M
+1 ? ? ? ? ? ? ? ?
+3 M ? M ? M ? ? M
+5 ? M ? M ? ? ? ?
+0 M ? ? ? ? ? ? M
+"#,
+        )
+        .unwrap();
+        let solutions = solver.all_solutions();
+
+        let expected = Level::from(
+            &SolverLevel::try_from(
+                r#"
+...#....
+.....##.
+..T#..#.
+#####.#M
+.......#
+M#M#M#.M
+#M#M##.#
+M......M
+"#,
+            )
+            .unwrap(),
+        );
+
+        assert_eq!(solutions, vec![expected]);
+    }
+
+    #[test]
     fn test_solve_level_nimble() {
         // Source of example: https://github.com/MischaU8/dungeons_diagrams/tree/bf29a0454aec28476ac80286e130feeaa4081dec?tab=readme-ov-file#usage
 
