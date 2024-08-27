@@ -177,7 +177,7 @@ impl SolverLevel {
             visited[pos] = true;
 
             while let Some(pos) = stack.pop() {
-                for neighbor in self.neighbors(pos) {
+                for neighbor in self.iter_neighbors(pos) {
                     if visited[neighbor] {
                         continue;
                     }
@@ -316,13 +316,12 @@ pub struct Solver {
     row_numbers: Vec<usize>,
     col_numbers: Vec<usize>,
     treasures: Vec<GridPos>,
-    max_solutions: usize,
-    solutions: Vec<Level>,
+    stack: Vec<(Option<GridPos>, Option<SolverCell>)>,
 }
 
 impl std::fmt::Debug for Solver {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "Solver (solutions = {})", self.solutions.len())?;
+        writeln!(f, "Solver")?;
 
         let level = format!("{:?}", self.level);
         let level_rows = level.trim().split('\n').collect::<Vec<_>>();
@@ -363,14 +362,18 @@ impl Solver {
 
     fn from_parts(level: SolverLevel, row_numbers: Vec<usize>, col_numbers: Vec<usize>) -> Self {
         let treasures = level.find_treasures();
+        let width = level.width();
+        let height = level.height();
+
+        let mut stack = Vec::with_capacity(width * height * 2);
+        stack.push((Some((0, 0).into()), None));
 
         Self {
             level,
             row_numbers,
             col_numbers,
             treasures,
-            max_solutions: 0,
-            solutions: Vec::new(),
+            stack,
         }
     }
 
@@ -455,18 +458,24 @@ impl Solver {
         }
 
         // all dead ends are monsters, all monsters are on dead ends
-        for neighbor in self.level.neighbors(pos) {
+        for neighbor in self.level.iter_neighbors(pos) {
             if self.level[neighbor] == SolverCell::Unknown {
                 continue;
             }
-            let num_neighbors = self.level.count_neighbors(neighbor, |_| true);
 
-            let num_walls = self
-                .level
-                .count_neighbors(neighbor, |n| *n == SolverCell::Wall);
-            let num_unknowns = self
-                .level
-                .count_neighbors(neighbor, |n| *n == SolverCell::Unknown);
+            let mut num_neighbors = 0;
+            let mut num_walls = 0;
+            let mut num_unknowns = 0;
+
+            for n in self.level.iter_neighbors(neighbor) {
+                num_neighbors += 1;
+                match self.level[n] {
+                    SolverCell::Wall => num_walls += 1,
+                    SolverCell::Unknown => num_unknowns += 1,
+                    _ => {}
+                }
+            }
+
             let min_walls = num_walls + if cell == SolverCell::Wall { 1 } else { 0 };
             let max_walls = num_walls + num_unknowns - if cell == SolverCell::Wall { 0 } else { 1 };
 
@@ -487,65 +496,77 @@ impl Solver {
         true
     }
 
-    fn place_cell(&mut self, pos: Option<GridPos>) {
-        if self.solutions.len() >= self.max_solutions {
-            return;
-        }
-        let Some(pos) = pos else {
-            if self.check_full_validity() {
-                self.solutions.push((&self.level).into())
-            }
-            return;
-        };
-        if self.level[pos] != SolverCell::Unknown {
-            self.place_cell(self.level.next_pos(&pos));
-            return;
-        }
-        for cell in [SolverCell::Hallway, SolverCell::Wall] {
-            if !self.check_quick_validity(pos, cell) {
-                continue;
-            }
-            self.level[pos] = cell;
-            self.place_cell(self.level.next_pos(&pos));
-            if self.solutions.len() >= self.max_solutions {
-                return;
-            }
-            self.level[pos] = SolverCell::Unknown;
-        }
-    }
-
     #[allow(dead_code)]
     pub fn first_solution(mut self) -> Option<Level> {
-        self.max_solutions = 1;
-        self.place_cell(Some((0, 0).into()));
-
-        self.solutions.pop()
+        self.next()
     }
 
     #[allow(dead_code)]
-    pub fn all_solutions(mut self) -> Vec<Level> {
-        self.max_solutions = usize::MAX;
-        self.place_cell(Some((0, 0).into()));
-
-        self.solutions
+    pub fn all_solutions(self) -> Vec<Level> {
+        self.collect()
     }
 }
 
-#[test]
-fn test_solve_level_random() {
-    let level = Level::random(8, 8);
-    let solver = Solver::from_level(&level);
-    let solutions = solver.all_solutions();
-    assert!(
-        solutions.contains(&level),
-        "Level {level:?} not found in solutions: {solutions:?}"
-    );
+impl Iterator for Solver {
+    type Item = Level;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        while let Some((pos, cell)) = self.stack.pop() {
+            let Some(pos) = pos else {
+                if self.check_full_validity() {
+                    return Some((&self.level).into());
+                }
+                continue;
+            };
+            match cell {
+                // Backtrack
+                Some(SolverCell::Unknown) => {
+                    self.level[pos] = SolverCell::Unknown;
+                }
+                // Try cell
+                Some(cell) => {
+                    if !self.check_quick_validity(pos, cell) {
+                        continue;
+                    }
+                    self.level[pos] = cell;
+                    self.stack.push((self.level.next_pos(&pos), None));
+                }
+                // If cell at pos is unknown, try all possibilities
+                None => {
+                    if self.level[pos] == SolverCell::Unknown {
+                        self.stack.push((Some(pos), Some(SolverCell::Unknown)));
+                        self.stack.push((Some(pos), Some(SolverCell::Wall)));
+                        self.stack.push((Some(pos), Some(SolverCell::Hallway)));
+                    } else {
+                        self.stack.push((self.level.next_pos(&pos), None));
+                    }
+                }
+            }
+        }
+
+        None
+    }
 }
 
-#[test]
-fn test_solve_level_weird() {
-    let solver = Solver::try_from(
-        r#"
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_solve_level_random() {
+        let level = Level::random(8, 8);
+        let solver = Solver::from_level(&level);
+        let solutions = solver.all_solutions();
+        assert!(
+            solutions.contains(&level),
+            "Level {level:?} not found in solutions: {solutions:?}"
+        );
+    }
+
+    #[test]
+    fn test_solve_level_weird() {
+        let solver = Solver::try_from(
+            r#"
   4 3 3 5 2 3 2 3
 4 ? ? M ? ? ? ? ?
 2 ? ? ? ? ? ? ? M
@@ -556,13 +577,13 @@ fn test_solve_level_weird() {
 1 ? ? ? ? ? ? ? ?
 6 ? ? ? ? ? M ? M
 "#,
-    )
-    .unwrap();
-    let solutions = solver.all_solutions();
+        )
+        .unwrap();
+        let solutions = solver.all_solutions();
 
-    let expected = Level::from(
-        &SolverLevel::try_from(
-            r#"
+        let expected = Level::from(
+            &SolverLevel::try_from(
+                r#"
 ##M#...#
 #....#.M
 M.#M#..#
@@ -572,19 +593,19 @@ M.#M#..#
 ...#....
 #####M#M
 "#,
-        )
-        .unwrap(),
-    );
+            )
+            .unwrap(),
+        );
 
-    assert_eq!(solutions, vec![expected]);
-}
+        assert_eq!(solutions, vec![expected]);
+    }
 
-// Source of levels: https://www.reddit.com/r/puzzles/comments/d72zg1/advanced_dungeons_and_diagrams_map_making_logic/
+    // Source of levels: https://www.reddit.com/r/puzzles/comments/d72zg1/advanced_dungeons_and_diagrams_map_making_logic/
 
-#[test]
-fn test_solve_sample() {
-    let solver = Solver::try_from(
-        r#"
+    #[test]
+    fn test_solve_sample() {
+        let solver = Solver::try_from(
+            r#"
   4 2 4 1 2 1
 3 ? ? ? ? ? T
 1 ? ? ? ? ? ?
@@ -593,13 +614,13 @@ fn test_solve_sample() {
 1 ? ? ? ? ? M
 2 M ? ? ? ? ?
 "#,
-    )
-    .unwrap();
-    let solutions = solver.all_solutions();
+        )
+        .unwrap();
+        let solutions = solver.all_solutions();
 
-    let expected = Level::from(
-        &SolverLevel::try_from(
-            r#"
+        let expected = Level::from(
+            &SolverLevel::try_from(
+                r#"
 ###..T
 #.....
 #.#...
@@ -607,17 +628,17 @@ fn test_solve_sample() {
 ....#M
 M##...
 "#,
-        )
-        .unwrap(),
-    );
+            )
+            .unwrap(),
+        );
 
-    assert_eq!(solutions, vec![expected]);
-}
+        assert_eq!(solutions, vec![expected]);
+    }
 
-#[test]
-fn test_solve_tenaxxuss_gullet() {
-    let solver = Solver::try_from(
-        r#"
+    #[test]
+    fn test_solve_tenaxxuss_gullet() {
+        let solver = Solver::try_from(
+            r#"
   4 4 2 6 2 3 4 7
 7 ? ? ? ? ? M ? ?
 3 ? ? ? ? ? ? ? ?
@@ -628,13 +649,13 @@ fn test_solve_tenaxxuss_gullet() {
 6 ? ? ? ? ? ? ? ?
 3 ? ? M ? ? ? ? M
 "#,
-    )
-    .unwrap();
-    let solutions = solver.all_solutions();
+        )
+        .unwrap();
+        let solutions = solver.all_solutions();
 
-    let expected = Level::from(
-        &SolverLevel::try_from(
-            r#"
+        let expected = Level::from(
+            &SolverLevel::try_from(
+                r#"
 #####M##
 ...#..##
 .T.#.###
@@ -644,17 +665,17 @@ M......#
 ##.#.###
 ##M#...M
 "#,
-        )
-        .unwrap(),
-    );
+            )
+            .unwrap(),
+        );
 
-    assert_eq!(solutions, vec![expected]);
-}
+        assert_eq!(solutions, vec![expected]);
+    }
 
-#[test]
-fn test_solve_the_twin_cities_of_the_dead() {
-    let solver = Solver::try_from(
-        r#"
+    #[test]
+    fn test_solve_the_twin_cities_of_the_dead() {
+        let solver = Solver::try_from(
+            r#"
   1 3 1 5 3 4 3 5
 5 ? ? ? ? ? ? ? ?
 2 ? ? T ? T ? ? ?
@@ -665,13 +686,13 @@ fn test_solve_the_twin_cities_of_the_dead() {
 6 ? ? ? ? ? ? ? ?
 1 ? ? ? ? M ? M ?
 "#,
-    )
-    .unwrap();
-    let solutions = solver.all_solutions();
+        )
+        .unwrap();
+        let solutions = solver.all_solutions();
 
-    let expected = Level::from(
-        &SolverLevel::try_from(
-            r#"
+        let expected = Level::from(
+            &SolverLevel::try_from(
+                r#"
 ...#####
 ..T#T..#
 ...#...#
@@ -681,17 +702,17 @@ M#.#####
 .######.
 ....M#M.
 "#,
-        )
-        .unwrap(),
-    );
+            )
+            .unwrap(),
+        );
 
-    assert_eq!(solutions, vec![expected]);
-}
+        assert_eq!(solutions, vec![expected]);
+    }
 
-#[test]
-fn test_solve_the_hive_of_great_sorrow() {
-    let solver = Solver::try_from(
-        r#"
+    #[test]
+    fn test_solve_the_hive_of_great_sorrow() {
+        let solver = Solver::try_from(
+            r#"
   3 6 0 5 4 0 6 3
 6 ? ? M ? ? M ? ?
 2 M ? ? ? ? ? ? M
@@ -702,13 +723,13 @@ fn test_solve_the_hive_of_great_sorrow() {
 2 M ? ? ? ? ? ? M
 4 ? ? ? ? ? ? ? ?
 "#,
-    )
-    .unwrap();
-    let solutions = solver.all_solutions();
+        )
+        .unwrap();
+        let solutions = solver.all_solutions();
 
-    let expected = Level::from(
-        &SolverLevel::try_from(
-            r#"
+        let expected = Level::from(
+            &SolverLevel::try_from(
+                r#"
 ##M##M##
 M#....#M
 .#.##.#.
@@ -718,9 +739,10 @@ M#....#M
 M..##..M
 ##....##
 "#,
-        )
-        .unwrap(),
-    );
+            )
+            .unwrap(),
+        );
 
-    assert_eq!(solutions, vec![expected]);
+        assert_eq!(solutions, vec![expected]);
+    }
 }
