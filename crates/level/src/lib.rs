@@ -4,13 +4,10 @@ mod gen;
 use gen::{GenCell, GenFloor, GenLevel};
 
 mod grid;
-use grid::{Grid, GridIterator, GridPos};
+use grid::{Grid, GridPos};
 
-mod recursive_solver;
-pub use recursive_solver::RecursiveSolver;
-
-mod iterative_solver;
-pub use iterative_solver::IterativeSolver;
+mod solver;
+pub use solver::Solver;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum CellFloor {
@@ -72,27 +69,13 @@ pub struct Level {
     grid: Grid<Cell>,
 }
 
-pub struct LevelIterator<'a> {
-    inner: GridIterator<'a, Cell>,
-}
-
-impl<'a> Iterator for LevelIterator<'a> {
-    type Item = &'a Cell;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.inner.next().map(|(c, _)| c)
-    }
-}
-
 impl Level {
     pub fn random(width: usize, height: usize) -> Self {
         GenLevel::random(width, height).into()
     }
 
-    pub fn iter(&self) -> LevelIterator {
-        LevelIterator {
-            inner: self.grid.iter(),
-        }
+    pub fn iter(&self) -> impl Iterator<Item = &Cell> {
+        self.grid.iter().map(|(c, _)| c)
     }
 
     pub fn width(&self) -> usize {

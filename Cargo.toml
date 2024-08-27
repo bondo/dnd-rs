@@ -43,3 +43,6 @@ lto = "thin"
 # Tell `rustc` to optimize for small code size when building for wasm
 [profile.release.package."dnd-rs-web-app"]
 opt-level = "s"
+
+[profile.bench]
+debug = true

@@ -97,7 +97,7 @@ impl TryFrom<&str> for SolverLevel {
     }
 }
 
-impl TryFrom<&str> for RecursiveSolver {
+impl TryFrom<&str> for Solver {
     type Error = String;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
@@ -155,7 +155,7 @@ impl TryFrom<&str> for RecursiveSolver {
             }
         }
 
-        Ok(RecursiveSolver::from_parts(grid, row_numbers, col_numbers))
+        Ok(Solver::from_parts(grid, row_numbers, col_numbers))
     }
 }
 
@@ -177,7 +177,7 @@ impl SolverLevel {
             visited[pos] = true;
 
             while let Some(pos) = stack.pop() {
-                for neighbor in self.neighbors(pos) {
+                for neighbor in self.iter_neighbors(pos) {
                     if visited[neighbor] {
                         continue;
                     }
@@ -311,7 +311,7 @@ impl SolverLevel {
     }
 }
 
-pub struct RecursiveSolver {
+pub struct Solver {
     level: SolverLevel,
     row_numbers: Vec<usize>,
     col_numbers: Vec<usize>,
@@ -320,7 +320,7 @@ pub struct RecursiveSolver {
     solutions: Vec<Level>,
 }
 
-impl std::fmt::Debug for RecursiveSolver {
+impl std::fmt::Debug for Solver {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "Solver (solutions = {})", self.solutions.len())?;
 
@@ -344,7 +344,7 @@ impl std::fmt::Debug for RecursiveSolver {
     }
 }
 
-impl RecursiveSolver {
+impl Solver {
     #[allow(dead_code)]
     pub fn from_level(level: &Level) -> Self {
         let mut col_numbers = vec![0; level.width()];
@@ -455,18 +455,24 @@ impl RecursiveSolver {
         }
 
         // all dead ends are monsters, all monsters are on dead ends
-        for neighbor in self.level.neighbors(pos) {
+        for neighbor in self.level.iter_neighbors(pos) {
             if self.level[neighbor] == SolverCell::Unknown {
                 continue;
             }
-            let num_neighbors = self.level.count_neighbors(neighbor, |_| true);
 
-            let num_walls = self
-                .level
-                .count_neighbors(neighbor, |n| *n == SolverCell::Wall);
-            let num_unknowns = self
-                .level
-                .count_neighbors(neighbor, |n| *n == SolverCell::Unknown);
+            let mut num_neighbors = 0;
+            let mut num_walls = 0;
+            let mut num_unknowns = 0;
+
+            for n in self.level.iter_neighbors(neighbor) {
+                num_neighbors += 1;
+                match self.level[n] {
+                    SolverCell::Wall => num_walls += 1,
+                    SolverCell::Unknown => num_unknowns += 1,
+                    _ => {}
+                }
+            }
+
             let min_walls = num_walls + if cell == SolverCell::Wall { 1 } else { 0 };
             let max_walls = num_walls + num_unknowns - if cell == SolverCell::Wall { 0 } else { 1 };
 
@@ -487,37 +493,54 @@ impl RecursiveSolver {
         true
     }
 
-    fn place_cell(&mut self, pos: Option<GridPos>) {
-        if self.solutions.len() >= self.max_solutions {
-            return;
-        }
-        let Some(pos) = pos else {
-            if self.check_full_validity() {
-                self.solutions.push((&self.level).into())
-            }
-            return;
-        };
-        if self.level[pos] != SolverCell::Unknown {
-            self.place_cell(self.level.next_pos(&pos));
-            return;
-        }
-        for cell in [SolverCell::Hallway, SolverCell::Wall] {
-            if !self.check_quick_validity(pos, cell) {
+    fn solve(&mut self) {
+        let mut stack: Vec<(Option<GridPos>, Option<SolverCell>)> =
+            Vec::with_capacity(self.level.width() * self.level.height() * 2);
+
+        stack.push((Some((0, 0).into()), None));
+
+        while let Some((pos, cell)) = stack.pop() {
+            let Some(pos) = pos else {
+                if self.check_full_validity() {
+                    self.solutions.push((&self.level).into());
+
+                    if self.solutions.len() >= self.max_solutions {
+                        return;
+                    }
+                }
                 continue;
+            };
+            match cell {
+                // Backtrack
+                Some(SolverCell::Unknown) => {
+                    self.level[pos] = SolverCell::Unknown;
+                }
+                // Try cell
+                Some(cell) => {
+                    if !self.check_quick_validity(pos, cell) {
+                        continue;
+                    }
+                    self.level[pos] = cell;
+                    stack.push((self.level.next_pos(&pos), None));
+                }
+                // If cell at pos is unknown, try all possibilities
+                None => {
+                    if self.level[pos] == SolverCell::Unknown {
+                        stack.push((Some(pos), Some(SolverCell::Unknown)));
+                        stack.push((Some(pos), Some(SolverCell::Wall)));
+                        stack.push((Some(pos), Some(SolverCell::Hallway)));
+                    } else {
+                        stack.push((self.level.next_pos(&pos), None));
+                    }
+                }
             }
-            self.level[pos] = cell;
-            self.place_cell(self.level.next_pos(&pos));
-            if self.solutions.len() >= self.max_solutions {
-                return;
-            }
-            self.level[pos] = SolverCell::Unknown;
         }
     }
 
     #[allow(dead_code)]
     pub fn first_solution(mut self) -> Option<Level> {
         self.max_solutions = 1;
-        self.place_cell(Some((0, 0).into()));
+        self.solve();
 
         self.solutions.pop()
     }
@@ -525,7 +548,7 @@ impl RecursiveSolver {
     #[allow(dead_code)]
     pub fn all_solutions(mut self) -> Vec<Level> {
         self.max_solutions = usize::MAX;
-        self.place_cell(Some((0, 0).into()));
+        self.solve();
 
         self.solutions
     }
@@ -538,7 +561,7 @@ mod tests {
     #[test]
     fn test_solve_level_random() {
         let level = Level::random(8, 8);
-        let solver = RecursiveSolver::from_level(&level);
+        let solver = Solver::from_level(&level);
         let solutions = solver.all_solutions();
         assert!(
             solutions.contains(&level),
@@ -548,18 +571,18 @@ mod tests {
 
     #[test]
     fn test_solve_level_weird() {
-        let solver = RecursiveSolver::try_from(
+        let solver = Solver::try_from(
             r#"
-      4 3 3 5 2 3 2 3
-    4 ? ? M ? ? ? ? ?
-    2 ? ? ? ? ? ? ? M
-    3 M ? ? M ? ? ? ?
-    5 ? ? ? ? ? ? ? M
-    2 ? T ? ? ? ? ? ?
-    2 ? ? ? ? ? ? ? ?
-    1 ? ? ? ? ? ? ? ?
-    6 ? ? ? ? ? M ? M
-    "#,
+  4 3 3 5 2 3 2 3
+4 ? ? M ? ? ? ? ?
+2 ? ? ? ? ? ? ? M
+3 M ? ? M ? ? ? ?
+5 ? ? ? ? ? ? ? M
+2 ? T ? ? ? ? ? ?
+2 ? ? ? ? ? ? ? ?
+1 ? ? ? ? ? ? ? ?
+6 ? ? ? ? ? M ? M
+"#,
         )
         .unwrap();
         let solutions = solver.all_solutions();
@@ -567,15 +590,15 @@ mod tests {
         let expected = Level::from(
             &SolverLevel::try_from(
                 r#"
-    ##M#...#
-    #....#.M
-    M.#M#..#
-    ####..#M
-    .T.#.#..
-    .....#.#
-    ...#....
-    #####M#M
-    "#,
+##M#...#
+#....#.M
+M.#M#..#
+####..#M
+.T.#.#..
+.....#.#
+...#....
+#####M#M
+"#,
             )
             .unwrap(),
         );
@@ -587,16 +610,16 @@ mod tests {
 
     #[test]
     fn test_solve_sample() {
-        let solver = RecursiveSolver::try_from(
+        let solver = Solver::try_from(
             r#"
-      4 2 4 1 2 1
-    3 ? ? ? ? ? T
-    1 ? ? ? ? ? ?
-    2 ? ? ? ? ? ?
-    5 ? ? ? ? ? ?
-    1 ? ? ? ? ? M
-    2 M ? ? ? ? ?
-    "#,
+  4 2 4 1 2 1
+3 ? ? ? ? ? T
+1 ? ? ? ? ? ?
+2 ? ? ? ? ? ?
+5 ? ? ? ? ? ?
+1 ? ? ? ? ? M
+2 M ? ? ? ? ?
+"#,
         )
         .unwrap();
         let solutions = solver.all_solutions();
@@ -604,13 +627,13 @@ mod tests {
         let expected = Level::from(
             &SolverLevel::try_from(
                 r#"
-    ###..T
-    #.....
-    #.#...
-    #.####
-    ....#M
-    M##...
-    "#,
+###..T
+#.....
+#.#...
+#.####
+....#M
+M##...
+"#,
             )
             .unwrap(),
         );
@@ -620,18 +643,18 @@ mod tests {
 
     #[test]
     fn test_solve_tenaxxuss_gullet() {
-        let solver = RecursiveSolver::try_from(
+        let solver = Solver::try_from(
             r#"
-      4 4 2 6 2 3 4 7
-    7 ? ? ? ? ? M ? ?
-    3 ? ? ? ? ? ? ? ?
-    4 ? T ? ? ? ? ? ?
-    1 ? ? ? ? ? ? ? ?
-    7 ? ? ? ? ? ? ? ?
-    1 M ? ? ? ? ? ? ?
-    6 ? ? ? ? ? ? ? ?
-    3 ? ? M ? ? ? ? M
-    "#,
+  4 4 2 6 2 3 4 7
+7 ? ? ? ? ? M ? ?
+3 ? ? ? ? ? ? ? ?
+4 ? T ? ? ? ? ? ?
+1 ? ? ? ? ? ? ? ?
+7 ? ? ? ? ? ? ? ?
+1 M ? ? ? ? ? ? ?
+6 ? ? ? ? ? ? ? ?
+3 ? ? M ? ? ? ? M
+"#,
         )
         .unwrap();
         let solutions = solver.all_solutions();
@@ -639,15 +662,15 @@ mod tests {
         let expected = Level::from(
             &SolverLevel::try_from(
                 r#"
-    #####M##
-    ...#..##
-    .T.#.###
-    .......#
-    ######.#
-    M......#
-    ##.#.###
-    ##M#...M
-    "#,
+#####M##
+...#..##
+.T.#.###
+.......#
+######.#
+M......#
+##.#.###
+##M#...M
+"#,
             )
             .unwrap(),
         );
@@ -657,18 +680,18 @@ mod tests {
 
     #[test]
     fn test_solve_the_twin_cities_of_the_dead() {
-        let solver = RecursiveSolver::try_from(
+        let solver = Solver::try_from(
             r#"
-      1 3 1 5 3 4 3 5
-    5 ? ? ? ? ? ? ? ?
-    2 ? ? T ? T ? ? ?
-    2 ? ? ? ? ? ? ? ?
-    3 ? ? ? ? ? ? ? ?
-    6 M ? ? ? ? ? ? ?
-    0 ? ? ? ? ? ? ? ?
-    6 ? ? ? ? ? ? ? ?
-    1 ? ? ? ? M ? M ?
-    "#,
+  1 3 1 5 3 4 3 5
+5 ? ? ? ? ? ? ? ?
+2 ? ? T ? T ? ? ?
+2 ? ? ? ? ? ? ? ?
+3 ? ? ? ? ? ? ? ?
+6 M ? ? ? ? ? ? ?
+0 ? ? ? ? ? ? ? ?
+6 ? ? ? ? ? ? ? ?
+1 ? ? ? ? M ? M ?
+"#,
         )
         .unwrap();
         let solutions = solver.all_solutions();
@@ -676,15 +699,15 @@ mod tests {
         let expected = Level::from(
             &SolverLevel::try_from(
                 r#"
-    ...#####
-    ..T#T..#
-    ...#...#
-    ##.....#
-    M#.#####
-    ........
-    .######.
-    ....M#M.
-    "#,
+...#####
+..T#T..#
+...#...#
+##.....#
+M#.#####
+........
+.######.
+....M#M.
+"#,
             )
             .unwrap(),
         );
@@ -694,18 +717,18 @@ mod tests {
 
     #[test]
     fn test_solve_the_hive_of_great_sorrow() {
-        let solver = RecursiveSolver::try_from(
+        let solver = Solver::try_from(
             r#"
-      3 6 0 5 4 0 6 3
-    6 ? ? M ? ? M ? ?
-    2 M ? ? ? ? ? ? M
-    4 ? ? ? ? ? ? ? ?
-    3 ? ? ? ? M ? ? ?
-    2 ? ? ? ? ? ? ? ?
-    4 ? ? ? ? ? ? ? ?
-    2 M ? ? ? ? ? ? M
-    4 ? ? ? ? ? ? ? ?
-    "#,
+  3 6 0 5 4 0 6 3
+6 ? ? M ? ? M ? ?
+2 M ? ? ? ? ? ? M
+4 ? ? ? ? ? ? ? ?
+3 ? ? ? ? M ? ? ?
+2 ? ? ? ? ? ? ? ?
+4 ? ? ? ? ? ? ? ?
+2 M ? ? ? ? ? ? M
+4 ? ? ? ? ? ? ? ?
+"#,
         )
         .unwrap();
         let solutions = solver.all_solutions();
@@ -713,15 +736,15 @@ mod tests {
         let expected = Level::from(
             &SolverLevel::try_from(
                 r#"
-    ##M##M##
-    M#....#M
-    .#.##.#.
-    .#.#M.#.
-    ...##...
-    ##....##
-    M..##..M
-    ##....##
-    "#,
+##M##M##
+M#....#M
+.#.##.#.
+.#.#M.#.
+...##...
+##....##
+M..##..M
+##....##
+"#,
             )
             .unwrap(),
         );

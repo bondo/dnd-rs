@@ -62,32 +62,28 @@ impl<C> Grid<C> {
         self.height
     }
 
-    pub(crate) fn iter(&self) -> GridIterator<C> {
-        GridIterator {
-            inner: Box::new(
-                self.cells
-                    .iter()
-                    .enumerate()
-                    .map(|(idx, c)| (c, (idx % self.width, idx / self.width).into())),
-            ),
-        }
+    pub(crate) fn iter(&self) -> impl Iterator<Item = (&C, GridPos)> {
+        self.cells
+            .iter()
+            .enumerate()
+            .map(|(idx, c)| (c, (idx % self.width, idx / self.width).into()))
     }
 
-    pub(crate) fn neighbors(&self, GridPos { x, y }: GridPos) -> Vec<GridPos> {
-        let mut neighbors: Vec<GridPos> = Vec::new();
-        if x > 0 {
-            neighbors.push((x - 1, y).into());
-        }
-        if y > 0 {
-            neighbors.push((x, y - 1).into());
-        }
-        if x + 1 < self.width {
-            neighbors.push((x + 1, y).into());
-        }
-        if y + 1 < self.height {
-            neighbors.push((x, y + 1).into());
-        }
-        neighbors
+    pub(crate) fn iter_neighbors(
+        &self,
+        GridPos { x, y }: GridPos,
+    ) -> impl Iterator<Item = GridPos> + use<'_, C> {
+        vec![(-1, 0), (0, -1), (1, 0), (0, 1)]
+            .into_iter()
+            .filter_map(move |(dx, dy)| {
+                let nx = x as isize + dx;
+                let ny = y as isize + dy;
+                if nx >= 0 && nx < self.width as isize && ny >= 0 && ny < self.height as isize {
+                    Some((nx as usize, ny as usize).into())
+                } else {
+                    None
+                }
+            })
     }
 
     pub(crate) fn next_pos(&self, pos: &GridPos) -> Option<GridPos> {
@@ -120,20 +116,14 @@ impl<C> Grid<C> {
     where
         F: FnMut(&C) -> bool,
     {
-        self.neighbors(p)
-            .into_iter()
-            .filter(|p| f(&self[*p]))
-            .count()
+        self.iter_neighbors(p).filter(|p| f(&self[*p])).count()
     }
 
     pub(crate) fn filtered_neighbors<F>(&self, p: GridPos, mut f: F) -> Vec<GridPos>
     where
         F: FnMut(&C) -> bool,
     {
-        self.neighbors(p)
-            .into_iter()
-            .filter(|p| f(&self[*p]))
-            .collect()
+        self.iter_neighbors(p).filter(|p| f(&self[*p])).collect()
     }
 
     pub(crate) fn map<F, T>(&self, mut f: F) -> Grid<T>
@@ -158,17 +148,5 @@ impl<C: Debug> Debug for Grid<C> {
             writeln!(f)?;
         }
         Ok(())
-    }
-}
-
-pub(crate) struct GridIterator<'a, C> {
-    inner: Box<dyn Iterator<Item = (&'a C, GridPos)> + 'a>,
-}
-
-impl<'a, C> Iterator for GridIterator<'a, C> {
-    type Item = (&'a C, GridPos);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.inner.next()
     }
 }
