@@ -42,8 +42,8 @@ pub struct DungeonsAndDiagramsPlugin;
 
 impl Plugin for DungeonsAndDiagramsPlugin {
     fn build(&self, app: &mut App) {
-        let level = Level::random(8, 8);
-        // println!("{:?}", level);
+        let level = Level::random_unique_solution(8, 8);
+        // println!("\nCurrent level:\n{:?}", level);
 
         app.insert_resource(level)
             .add_systems(Startup, setup)

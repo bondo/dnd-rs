@@ -1,4 +1,4 @@
-use std::fmt::Debug;
+use std::{fmt::Debug, time::Instant};
 
 mod gen;
 use gen::{GenCell, GenFloor, GenLevel};
@@ -72,6 +72,32 @@ pub struct Level {
 impl Level {
     pub fn random(width: usize, height: usize) -> Self {
         GenLevel::random(width, height).into()
+    }
+
+    pub fn random_unique_solution(width: usize, height: usize) -> Self {
+        let start = Instant::now();
+        let level = loop {
+            let level_start = Instant::now();
+            let level = Level::random(width, height);
+            println!("Generated level in {:?}", level_start.elapsed());
+
+            let solver_start = Instant::now();
+            let mut solver = Solver::from_level(&level);
+            let Some(_) = solver.next() else {
+                panic!("Generated level without solution:\n{:?}", level);
+            };
+            let is_unique = solver.next().is_none();
+            println!("Solved level in {:?}", solver_start.elapsed());
+
+            if is_unique {
+                println!("Level has unique solution");
+                break level;
+            }
+
+            println!("Level has multiple solutions");
+        };
+        println!("Generated unique level in {:?}", start.elapsed());
+        level
     }
 
     pub fn iter(&self) -> impl Iterator<Item = &Cell> {
