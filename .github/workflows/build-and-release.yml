@@ -48,7 +48,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         run: |
           mv target/${{ matrix.platform.target }}/release/${{ matrix.platform.bin }} .
-          ${{ matrix.platform.archive_cmd }} dnd-${{matrix.platform.target}}.${{ matrix.platform.archive_ext }} ${{ matrix.platform.bin }}
+          ${{ matrix.platform.archive_cmd }} dnd-${{matrix.platform.target}}.${{ matrix.platform.archive_ext }} ${{ matrix.platform.bin }} assets
       - name: Upload artifact
         if: startsWith(github.ref, 'refs/tags/v')
         uses: actions/upload-artifact@v4
