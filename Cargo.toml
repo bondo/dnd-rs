@@ -9,6 +9,7 @@ authors = ["Bjarke Bondo Andersen <andersen.bjarke@gmail.com>"]
 
 [workspace.dependencies]
 bevy = { version = "0.14.1", default-features = false, features = [
+    "bevy_state",
     "bevy_ui",
     "default_font",
     "multi_threaded",

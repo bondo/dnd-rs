@@ -1,7 +1,9 @@
 use std::cmp::Ordering;
 
 use bevy::{
-    input::common_conditions::input_just_pressed, prelude::*, render::camera::ScalingMode,
+    input::{common_conditions::input_just_pressed, touch::TouchPhase},
+    prelude::*,
+    render::camera::ScalingMode,
     window::PrimaryWindow,
 };
 
@@ -34,7 +36,6 @@ const CELL_SIZE: Vec2 = Vec2::new(UNIT_SIZE - BORDER_WIDTH, UNIT_SIZE - BORDER_W
 // TODO:
 // - Handle long press events like right click
 // - Add indicator when monster is in a blind alley
-// - Handle level completed
 // - Add interface settings to change level size
 // - Add Android support
 
@@ -42,37 +43,75 @@ pub struct DungeonsAndDiagramsPlugin;
 
 impl Plugin for DungeonsAndDiagramsPlugin {
     fn build(&self, app: &mut App) {
-        let level = Level::random_unique_solution(8, 8);
-        // println!("\nCurrent level:\n{:?}", level);
+        let config = Config {
+            width: 8,
+            height: 8,
+        };
 
-        app.insert_resource(level)
-            .add_systems(Startup, setup)
+        app.init_state::<AppState>()
+            .insert_resource(config)
+            .insert_resource(RandomSource(fastrand::Rng::new()))
+            .add_systems(
+                OnEnter(AppState::Playing),
+                (generate_level, spawn_game).chain(),
+            )
+            .add_systems(OnEnter(AppState::Won), spawn_confetti)
+            .add_systems(OnExit(AppState::Won), despawn_game)
             .add_systems(
                 Update,
                 (
-                    handle_left_click.run_if(input_just_pressed(MouseButton::Left)),
-                    handle_right_click.run_if(input_just_pressed(MouseButton::Right)),
-                    handle_touch,
-                    update_row_header_colors,
-                    update_column_header_colors,
+                    (
+                        handle_left_click.run_if(input_just_pressed(MouseButton::Left)),
+                        handle_right_click.run_if(input_just_pressed(MouseButton::Right)),
+                        handle_touch,
+                        update_row_header_colors,
+                        update_column_header_colors,
+                        check_level_completed,
+                    )
+                        .run_if(in_state(AppState::Playing)),
+                    (
+                        move_confetti,
+                        handle_won_state_input,
+                        update_watch_confetti_timer,
+                    )
+                        .run_if(in_state(AppState::Won)),
                 ),
             );
     }
 }
 
+#[derive(Debug, Default, Clone, Copy, Eq, PartialEq, Hash, States)]
+enum AppState {
+    #[default]
+    Playing,
+    Won,
+}
+
+#[derive(Resource)]
+struct Config {
+    width: usize,
+    height: usize,
+}
+
+#[derive(Resource, Deref, DerefMut)]
+struct RandomSource(fastrand::Rng);
+
 #[derive(Component)]
 struct MainCamera;
+
+#[derive(Component)]
+struct GameComponent;
 
 #[derive(Component, Default)]
 struct Cell;
 
-#[derive(Component)]
+#[derive(Component, Deref)]
 struct HeaderText(usize);
 
-#[derive(Component, Clone, Copy)]
+#[derive(Component, Clone, Copy, Deref)]
 struct Row(usize);
 
-#[derive(Component, Clone, Copy)]
+#[derive(Component, Clone, Copy, Deref)]
 struct Column(usize);
 
 #[derive(Component, Default)]
@@ -108,7 +147,16 @@ struct TreasureBundle {
     treasure: Treasure,
 }
 
-fn setup(mut commands: Commands, level: Res<Level>) {
+fn generate_level(mut commands: Commands, config: Res<Config>) {
+    commands.spawn((
+        GameComponent,
+        Level::random_unique_solution(config.width, config.height),
+    ));
+}
+
+fn spawn_game(mut commands: Commands, q_level: Query<&Level>) {
+    let level = q_level.single();
+
     let width = (level.width() as f32 + 1.0) * UNIT_SIZE + PADDING_LEFT + PADDING_RIGHT;
     let height = (level.height() as f32 + 1.0) * UNIT_SIZE + PADDING_TOP + PADDING_BOTTOM;
 
@@ -118,29 +166,32 @@ fn setup(mut commands: Commands, level: Res<Level>) {
         min_height: height,
     };
     camera_2d.transform = Transform::from_xyz(width / 2.0, height / 2.0, 0.0);
-    commands.spawn((camera_2d, MainCamera));
+    commands.spawn((GameComponent, camera_2d, MainCamera));
 
     // Paint border as background
-    commands.spawn(SpriteBundle {
-        transform: Transform {
-            translation: Vec3::new(
-                (width - PADDING_LEFT - PADDING_RIGHT) / 2.0 + OFFSET + PADDING_LEFT,
-                (height - PADDING_TOP - PADDING_BOTTOM) / 2.0 - OFFSET + PADDING_BOTTOM,
-                -1.0,
-            ),
-            scale: Vec3::new(
-                level.width() as f32 * UNIT_SIZE + BORDER_WIDTH,
-                level.height() as f32 * UNIT_SIZE + BORDER_WIDTH,
-                0.0,
-            ),
+    commands.spawn((
+        GameComponent,
+        SpriteBundle {
+            transform: Transform {
+                translation: Vec3::new(
+                    (width - PADDING_LEFT - PADDING_RIGHT) / 2.0 + OFFSET + PADDING_LEFT,
+                    (height - PADDING_TOP - PADDING_BOTTOM) / 2.0 - OFFSET + PADDING_BOTTOM,
+                    -1.0,
+                ),
+                scale: Vec3::new(
+                    level.width() as f32 * UNIT_SIZE + BORDER_WIDTH,
+                    level.height() as f32 * UNIT_SIZE + BORDER_WIDTH,
+                    0.0,
+                ),
+                ..Default::default()
+            },
+            sprite: Sprite {
+                color: BORDER_COLOR,
+                ..Default::default()
+            },
             ..Default::default()
         },
-        sprite: Sprite {
-            color: BORDER_COLOR,
-            ..Default::default()
-        },
-        ..Default::default()
-    });
+    ));
 
     let mut column_headers = vec![0; level.width()];
     let mut row_headers = vec![0; level.height()];
@@ -163,6 +214,7 @@ fn setup(mut commands: Commands, level: Res<Level>) {
         match c.kind() {
             CellKind::Wall | CellKind::Floor(CellFloor::Empty) => {
                 commands.spawn((
+                    GameComponent,
                     FloorBundle {
                         ..Default::default()
                     },
@@ -179,6 +231,7 @@ fn setup(mut commands: Commands, level: Res<Level>) {
             }
             CellKind::Floor(CellFloor::Treasure) => {
                 commands.spawn((
+                    GameComponent,
                     TreasureBundle {
                         ..Default::default()
                     },
@@ -195,6 +248,7 @@ fn setup(mut commands: Commands, level: Res<Level>) {
             }
             CellKind::Floor(CellFloor::Monster) => {
                 commands.spawn((
+                    GameComponent,
                     MonsterBundle {
                         ..Default::default()
                     },
@@ -220,6 +274,7 @@ fn setup(mut commands: Commands, level: Res<Level>) {
 
     column_headers.iter().enumerate().for_each(|(i, value)| {
         commands.spawn((
+            GameComponent,
             Text2dBundle {
                 text: Text::from_section(value.to_string(), text_style.clone()),
                 transform: Transform::from_xyz(
@@ -236,6 +291,7 @@ fn setup(mut commands: Commands, level: Res<Level>) {
 
     row_headers.iter().enumerate().for_each(|(i, value)| {
         commands.spawn((
+            GameComponent,
             Text2dBundle {
                 text: Text::from_section(value.to_string(), text_style.clone()),
                 transform: Transform::from_xyz(
@@ -273,7 +329,6 @@ fn handle_touch(
     q_empty_cells: Query<(&Floor, &Transform, &Row, &Column), Without<Wall>>,
     q_camera: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
 ) {
-    use bevy::input::touch::TouchPhase;
     for event in touch_events.read() {
         if event.phase == TouchPhase::Ended {
             let Some(position) = viewport_to_world_position(&q_camera, event.position) else {
@@ -303,6 +358,7 @@ fn execute_primary_action(
     for (_floor, transform, row, column) in q_empty_cells.iter() {
         if is_cursor_in_cell(pos, transform) {
             commands.spawn((
+                GameComponent,
                 Wall,
                 SpriteBundle {
                     transform: Transform {
@@ -348,6 +404,7 @@ fn handle_right_click(
     for (_cell, transform, row, column) in q_cells.iter() {
         if is_cursor_in_cell(cursor_position, transform) {
             commands.spawn((
+                GameComponent,
                 QuestionMark,
                 Text2dBundle {
                     text: Text::from_section(
@@ -375,8 +432,10 @@ fn handle_right_click(
 fn update_row_header_colors(
     mut q_row_headers: Query<(&Row, &mut Text, &HeaderText)>,
     q_walls: Query<&Row, With<Wall>>,
-    level: Res<Level>,
+    q_level: Query<&Level>,
 ) {
+    let level = q_level.single();
+
     // Count walls in each row and column
     let mut row_walls = vec![0; level.height()];
     q_walls.iter().for_each(|row| {
@@ -399,8 +458,10 @@ fn update_row_header_colors(
 fn update_column_header_colors(
     mut q_column_headers: Query<(&Column, &mut Text, &HeaderText)>,
     q_walls: Query<&Column, With<Wall>>,
-    level: Res<Level>,
+    q_level: Query<&Level>,
 ) {
+    let level = q_level.single();
+
     // Count walls in each row and column
     let mut column_walls = vec![0; level.width()];
     q_walls.iter().for_each(|column| {
@@ -446,4 +507,131 @@ fn viewport_to_world_position(
 ) -> Option<Vec2> {
     let (camera, camera_transform) = q_camera.single();
     camera.viewport_to_world_2d(camera_transform, position)
+}
+
+#[derive(Component)]
+struct Confetti {
+    velocity: Vec3,
+    stretch_velocity: f32,
+    rotation_velocity: f32,
+}
+
+#[derive(Component, Deref, DerefMut)]
+struct WatchConfettiTimer(Timer);
+
+// Display confetti when level is completed
+fn check_level_completed(
+    mut next_state: ResMut<NextState<AppState>>,
+    q_walls: Query<(&Row, &Column), With<Wall>>,
+    q_level: Query<&Level>,
+) {
+    let level = q_level.single();
+
+    let is_completed = q_walls.iter().count() == level.iter().filter(|c| c.has_wall()).count()
+        && q_walls.iter().all(|(r, c)| level.is_wall(c.0, r.0));
+    if is_completed {
+        info!("Level completed!");
+        next_state.set(AppState::Won);
+    }
+}
+
+fn spawn_confetti(mut commands: Commands, mut rnd: ResMut<RandomSource>, q_level: Query<&Level>) {
+    let level = q_level.single();
+
+    let width = (level.width() as f32 + 1.0) * UNIT_SIZE + PADDING_LEFT + PADDING_RIGHT;
+
+    for _ in 0..1000 {
+        let x = rnd.f32() * width;
+        let y = 0.0;
+
+        let color = Color::srgb(rnd.f32(), rnd.f32(), rnd.f32());
+        commands.spawn((
+            GameComponent,
+            Confetti {
+                velocity: Vec3::new(rnd.f32() * 1000.0 - 500.0, rnd.f32() * 700.0, 0.0),
+                stretch_velocity: rnd.f32() * 10.0 + 10.0,
+                rotation_velocity: rnd.f32() * 10.0,
+            },
+            SpriteBundle {
+                transform: Transform {
+                    translation: Vec3::new(x, y, 200.0),
+                    scale: Vec3::new(rnd.f32() * 5.0 + 5.0, rnd.f32() * 5.0 + 5.0, 0.0),
+                    ..Default::default()
+                },
+                sprite: Sprite {
+                    color,
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+        ));
+    }
+
+    commands.spawn((
+        GameComponent,
+        WatchConfettiTimer(Timer::from_seconds(1.0, TimerMode::Once)),
+    ));
+
+    // TODO: Spawn some text and button to restart
+}
+
+fn despawn_game(mut commands: Commands, q_entity: Query<Entity, With<GameComponent>>) {
+    for entity in &q_entity {
+        commands.entity(entity).despawn();
+    }
+}
+
+fn move_confetti(time: Res<Time>, mut q_confetti: Query<(&mut Transform, &mut Confetti)>) {
+    for (mut transform, mut confetti) in q_confetti.iter_mut() {
+        transform.translation += confetti.velocity * time.delta_seconds();
+
+        // Add gravity
+        confetti.velocity.y -= 200.0 * time.delta_seconds();
+
+        // Rotate
+        transform.rotation *=
+            Quat::from_rotation_z(confetti.rotation_velocity * time.delta_seconds());
+
+        // Stretch
+        transform.scale.x += confetti.stretch_velocity * time.delta_seconds();
+
+        // Reverse stretch when reaching a limit
+        if transform.scale.x > 20.0 || transform.scale.x < 5.0 {
+            confetti.stretch_velocity = -confetti.stretch_velocity;
+        }
+
+        // Increase stretch and rotation velocity while falling
+        if confetti.velocity.y < 0.0 {
+            confetti.stretch_velocity += 10.0 * time.delta_seconds();
+            confetti.rotation_velocity += 2.0 * time.delta_seconds();
+        }
+    }
+}
+
+fn update_watch_confetti_timer(mut q_timer: Query<&mut WatchConfettiTimer>, time: Res<Time>) {
+    for mut timer in &mut q_timer {
+        timer.tick(time.delta());
+    }
+}
+
+fn handle_won_state_input(
+    mut next_state: ResMut<NextState<AppState>>,
+    keys: Res<ButtonInput<KeyCode>>,
+    mouse_buttons: Res<ButtonInput<MouseButton>>,
+    mut touch_events: EventReader<TouchInput>,
+    q_timer: Query<&WatchConfettiTimer>,
+) {
+    if !q_timer.iter().any(|timer| timer.finished()) {
+        return;
+    }
+
+    if keys.get_just_pressed().next().is_some()
+        || mouse_buttons.get_just_released().next().is_some()
+        || touch_events
+            .read()
+            .any(|event| event.phase == TouchPhase::Ended)
+    {
+        info!("Restarting game");
+        next_state.set(AppState::Playing);
+    }
 }

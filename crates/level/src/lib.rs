@@ -65,7 +65,7 @@ impl Debug for Level {
     }
 }
 
-#[derive(bevy::prelude::Resource, Clone, PartialEq)]
+#[derive(bevy::prelude::Component, Clone, PartialEq)]
 pub struct Level {
     grid: Grid<Cell>,
 }
@@ -129,6 +129,10 @@ impl Level {
 
     pub fn height(&self) -> usize {
         self.grid.height()
+    }
+
+    pub fn is_wall(&self, x: usize, y: usize) -> bool {
+        self.grid[(x, y).into()].has_wall()
     }
 }
 
