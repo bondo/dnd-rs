@@ -44,8 +44,8 @@ pub struct DungeonsAndDiagramsPlugin;
 impl Plugin for DungeonsAndDiagramsPlugin {
     fn build(&self, app: &mut App) {
         let config = Config {
-            width: 6,
-            height: 6,
+            width: 8,
+            height: 8,
         };
 
         app.init_state::<AppState>()
