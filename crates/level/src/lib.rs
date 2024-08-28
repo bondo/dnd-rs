@@ -65,7 +65,7 @@ impl Debug for Level {
     }
 }
 
-#[derive(bevy::prelude::Resource, Clone, PartialEq)]
+#[derive(bevy::prelude::Component, Clone, PartialEq)]
 pub struct Level {
     grid: Grid<Cell>,
 }
