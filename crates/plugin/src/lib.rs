@@ -25,8 +25,6 @@ const PADDING_BOTTOM: f32 = UNIT_SIZE * 0.3;
 const PADDING_RIGHT: f32 = UNIT_SIZE * 0.3;
 
 const WALL_COLOR: Color = Color::srgb(0.0, 0.0, 1.0);
-const MONSTER_COLOR: Color = Color::srgb(1.0, 0.0, 0.0);
-const TREASURE_COLOR: Color = Color::srgb(1.0, 1.0, 0.0);
 const CELL_COLOR: Color = Color::srgb(0.5, 0.5, 0.5);
 const BORDER_COLOR: Color = Color::srgb(0.0, 0.0, 0.0);
 
@@ -154,7 +152,12 @@ fn generate_level(mut commands: Commands, config: Res<Config>) {
     ));
 }
 
-fn spawn_game(mut commands: Commands, q_level: Query<&Level>) {
+fn spawn_game(
+    mut commands: Commands,
+    mut rnd: ResMut<RandomSource>,
+    asset_server: Res<AssetServer>,
+    q_level: Query<&Level>,
+) {
     let level = q_level.single();
 
     let width = (level.width() as f32 + 1.0) * UNIT_SIZE + PADDING_LEFT + PADDING_RIGHT;
@@ -207,7 +210,15 @@ fn spawn_game(mut commands: Commands, q_level: Query<&Level>) {
                 height - ((c.y() as f32 + 1.0) * UNIT_SIZE + OFFSET + PADDING_TOP),
                 0.0,
             ),
-            scale: CELL_SIZE.extend(1.0),
+            scale: CELL_SIZE.extend(0.0),
+            ..Default::default()
+        };
+        let cell_sprite = SpriteBundle {
+            transform,
+            sprite: Sprite {
+                color: CELL_COLOR,
+                ..Default::default()
+            },
             ..Default::default()
         };
         let pos = (Row(c.y()), Column(c.x()));
@@ -218,14 +229,7 @@ fn spawn_game(mut commands: Commands, q_level: Query<&Level>) {
                     FloorBundle {
                         ..Default::default()
                     },
-                    SpriteBundle {
-                        transform,
-                        sprite: Sprite {
-                            color: CELL_COLOR,
-                            ..Default::default()
-                        },
-                        ..Default::default()
-                    },
+                    cell_sprite,
                     pos,
                 ));
             }
@@ -235,15 +239,24 @@ fn spawn_game(mut commands: Commands, q_level: Query<&Level>) {
                     TreasureBundle {
                         ..Default::default()
                     },
+                    cell_sprite,
+                    pos,
+                ));
+                commands.spawn((
+                    GameComponent,
                     SpriteBundle {
-                        transform,
-                        sprite: Sprite {
-                            color: TREASURE_COLOR,
+                        transform: Transform {
+                            translation: Vec3::new(
+                                (c.x() as f32 + 1.0) * UNIT_SIZE + OFFSET + PADDING_LEFT,
+                                height - ((c.y() as f32 + 1.0) * UNIT_SIZE + OFFSET + PADDING_TOP),
+                                1.0,
+                            ),
+                            scale: Vec3::new(0.20, 0.20, 0.0),
                             ..Default::default()
                         },
+                        texture: asset_server.load("treasure.png"),
                         ..Default::default()
                     },
-                    pos,
                 ));
             }
             CellKind::Floor(CellFloor::Monster) => {
@@ -252,15 +265,24 @@ fn spawn_game(mut commands: Commands, q_level: Query<&Level>) {
                     MonsterBundle {
                         ..Default::default()
                     },
+                    cell_sprite,
+                    pos,
+                ));
+                commands.spawn((
+                    GameComponent,
                     SpriteBundle {
-                        transform,
-                        sprite: Sprite {
-                            color: MONSTER_COLOR,
+                        transform: Transform {
+                            translation: Vec3::new(
+                                (c.x() as f32 + 1.0) * UNIT_SIZE + OFFSET + PADDING_LEFT,
+                                height - ((c.y() as f32 + 1.0) * UNIT_SIZE + OFFSET + PADDING_TOP),
+                                1.0,
+                            ),
+                            scale: Vec3::new(0.22, 0.22, 0.0),
                             ..Default::default()
                         },
+                        texture: asset_server.load(format!("monsters/{}.png", rnd.u32(1..=40))),
                         ..Default::default()
                     },
-                    pos,
                 ));
             }
         }
@@ -363,7 +385,7 @@ fn execute_primary_action(
                 SpriteBundle {
                     transform: Transform {
                         translation: transform.translation.with_z(1.0),
-                        scale: CELL_SIZE.extend(1.0),
+                        scale: CELL_SIZE.extend(0.0),
                         ..Default::default()
                     },
                     sprite: Sprite {
