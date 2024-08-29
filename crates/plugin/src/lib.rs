@@ -41,7 +41,7 @@ pub struct DungeonsAndDiagramsPlugin;
 
 impl Plugin for DungeonsAndDiagramsPlugin {
     fn build(&self, app: &mut App) {
-        let config = Config {
+        let config: Config = Config {
             width: 8,
             height: 8,
         };
@@ -146,6 +146,14 @@ struct TreasureBundle {
 }
 
 fn generate_level(mut commands: Commands, config: Res<Config>) {
+    // TODO: Trigger win condition in any solution when uniqueness not guaranteed
+    // let level = if config.width * config.height > 100 {
+    //     // Validating unique solution is too slow for large levels
+    //     Level::random(config.width, config.height)
+    // } else {
+    //     Level::random_unique_solution(config.width, config.height)
+    // };
+
     commands.spawn((
         GameComponent,
         Level::random_unique_solution(config.width, config.height),

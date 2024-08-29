@@ -72,21 +72,22 @@ pub struct Level {
 
 impl Level {
     pub fn random(width: usize, height: usize) -> Self {
-        GenLevel::random(width, height).into()
+        let level_start = chrono::Utc::now();
+        let level = GenLevel::random(width, height).into();
+        info!(
+            "Generated level in {:?}",
+            chrono::Utc::now()
+                .signed_duration_since(level_start)
+                .to_std()
+                .unwrap()
+        );
+        level
     }
 
     pub fn random_unique_solution(width: usize, height: usize) -> Self {
         let start = chrono::Utc::now();
         let level = loop {
-            let level_start = chrono::Utc::now();
             let level = Level::random(width, height);
-            info!(
-                "Generated level in {:?}",
-                chrono::Utc::now()
-                    .signed_duration_since(level_start)
-                    .to_std()
-                    .unwrap()
-            );
 
             let solver_start = chrono::Utc::now();
             let mut solver = Solver::from_level(&level);
