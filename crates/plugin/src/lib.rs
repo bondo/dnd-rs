@@ -340,7 +340,7 @@ fn spawn_game(
 fn handle_left_click(
     mut commands: Commands,
     q_walls: Query<(Entity, &Transform), With<Wall>>,
-    q_empty_cells: Query<(&Floor, &Transform, &Row, &Column), Without<Wall>>,
+    q_empty_cells: Query<(&Transform, &Row, &Column), (With<Floor>, Without<Wall>)>,
     q_windows: Query<&Window, With<PrimaryWindow>>,
     q_camera: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
 ) {
@@ -356,7 +356,7 @@ fn handle_touch(
     mut touch_events: EventReader<TouchInput>,
     mut commands: Commands,
     q_walls: Query<(Entity, &Transform), With<Wall>>,
-    q_empty_cells: Query<(&Floor, &Transform, &Row, &Column), Without<Wall>>,
+    q_empty_cells: Query<(&Transform, &Row, &Column), (With<Floor>, Without<Wall>)>,
     q_camera: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
 ) {
     for event in touch_events.read() {
@@ -373,11 +373,11 @@ fn handle_touch(
 fn execute_primary_action(
     commands: &mut Commands,
     q_walls: &Query<(Entity, &Transform), With<Wall>>,
-    q_empty_cells: &Query<(&Floor, &Transform, &Row, &Column), Without<Wall>>,
+    q_empty_cells: &Query<(&Transform, &Row, &Column), (With<Floor>, Without<Wall>)>,
     pos: Vec2,
 ) {
     // If a wall is clicked, remove it
-    for (entity, transform) in q_walls.iter() {
+    for (entity, transform) in q_walls {
         if is_cursor_in_cell(pos, transform) {
             commands.entity(entity).despawn();
             return;
@@ -385,7 +385,7 @@ fn execute_primary_action(
     }
 
     // If an empty cell is clicked, add a wall
-    for (_floor, transform, row, column) in q_empty_cells.iter() {
+    for (transform, row, column) in q_empty_cells {
         if is_cursor_in_cell(pos, transform) {
             commands.spawn((
                 GameComponent,
@@ -413,7 +413,7 @@ fn execute_primary_action(
 fn handle_right_click(
     mut commands: Commands,
     q_question_marks: Query<(Entity, &Transform), With<QuestionMark>>,
-    q_cells: Query<(&Cell, &Transform, &Row, &Column), Without<QuestionMark>>,
+    q_cells: Query<(&Transform, &Row, &Column), (With<Cell>, Without<QuestionMark>)>,
     q_windows: Query<&Window, With<PrimaryWindow>>,
     q_camera: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
 ) {
@@ -423,7 +423,7 @@ fn handle_right_click(
     };
 
     // If a question mark is clicked, remove it
-    for (entity, transform) in q_question_marks.iter() {
+    for (entity, transform) in &q_question_marks {
         if is_cursor_in_cell(cursor_position, transform) {
             commands.entity(entity).despawn();
             return;
@@ -431,7 +431,7 @@ fn handle_right_click(
     }
 
     // If a cell is clicked, add a question mark
-    for (_cell, transform, row, column) in q_cells.iter() {
+    for (transform, row, column) in &q_cells {
         if is_cursor_in_cell(cursor_position, transform) {
             commands.spawn((
                 GameComponent,
