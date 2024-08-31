@@ -49,15 +49,23 @@ impl Plugin for DungeonsAndDiagramsPlugin {
         app.init_state::<AppState>()
             .insert_resource(config)
             .insert_resource(RandomSource(fastrand::Rng::new()))
+            .insert_resource(AssetsLoading(Vec::new()))
             .add_systems(
-                OnEnter(AppState::Playing),
-                (generate_level, spawn_game).chain(),
+                OnEnter(AppState::Loading),
+                (
+                    spawn_static_components,
+                    generate_level,
+                    spawn_level_components,
+                )
+                    .chain(),
             )
+            .add_systems(OnExit(AppState::Loading), handle_game_ready)
             .add_systems(OnEnter(AppState::Won), spawn_confetti)
             .add_systems(OnExit(AppState::Won), despawn_game)
             .add_systems(
                 Update,
                 (
+                    check_loading_completed.run_if(in_state(AppState::Loading)),
                     (
                         handle_left_click.run_if(input_just_pressed(MouseButton::Left)),
                         handle_right_click.run_if(input_just_pressed(MouseButton::Right)),
@@ -81,9 +89,13 @@ impl Plugin for DungeonsAndDiagramsPlugin {
 #[derive(Debug, Default, Clone, Copy, Eq, PartialEq, Hash, States)]
 enum AppState {
     #[default]
+    Loading,
     Playing,
     Won,
 }
+
+#[derive(Resource, Deref, DerefMut)]
+struct AssetsLoading(Vec<UntypedHandle>);
 
 #[derive(Resource)]
 struct Config {
@@ -145,31 +157,11 @@ struct TreasureBundle {
     treasure: Treasure,
 }
 
-fn generate_level(mut commands: Commands, config: Res<Config>) {
-    // TODO: Trigger win condition in any solution when uniqueness not guaranteed
-    // let level = if config.width * config.height > 100 {
-    //     // Validating unique solution is too slow for large levels
-    //     Level::random(config.width, config.height)
-    // } else {
-    //     Level::random_unique_solution(config.width, config.height)
-    // };
+fn spawn_static_components(mut commands: Commands, config: Res<Config>) {
+    info!("Spawning static components");
 
-    commands.spawn((
-        GameComponent,
-        Level::random_unique_solution(config.width, config.height),
-    ));
-}
-
-fn spawn_game(
-    mut commands: Commands,
-    mut rnd: ResMut<RandomSource>,
-    asset_server: Res<AssetServer>,
-    q_level: Query<&Level>,
-) {
-    let level = q_level.single();
-
-    let width = (level.width() as f32 + 1.0) * UNIT_SIZE + PADDING_LEFT + PADDING_RIGHT;
-    let height = (level.height() as f32 + 1.0) * UNIT_SIZE + PADDING_TOP + PADDING_BOTTOM;
+    let width = (config.width as f32 + 1.0) * UNIT_SIZE + PADDING_LEFT + PADDING_RIGHT;
+    let height = (config.height as f32 + 1.0) * UNIT_SIZE + PADDING_TOP + PADDING_BOTTOM;
 
     let mut camera_2d = Camera2dBundle::default();
     camera_2d.projection.scaling_mode = ScalingMode::AutoMin {
@@ -190,8 +182,8 @@ fn spawn_game(
                     -1.0,
                 ),
                 scale: Vec3::new(
-                    level.width() as f32 * UNIT_SIZE + BORDER_WIDTH,
-                    level.height() as f32 * UNIT_SIZE + BORDER_WIDTH,
+                    config.width as f32 * UNIT_SIZE + BORDER_WIDTH,
+                    config.height as f32 * UNIT_SIZE + BORDER_WIDTH,
                     0.0,
                 ),
                 ..Default::default()
@@ -204,95 +196,73 @@ fn spawn_game(
         },
     ));
 
+    // Spawn cells
+    for x in 0..config.width {
+        for y in 0..config.height {
+            let pos = (Row(y), Column(x));
+            commands.spawn((
+                GameComponent,
+                Cell,
+                SpriteBundle {
+                    transform: Transform {
+                        translation: Vec3::new(
+                            (x as f32 + 1.0) * UNIT_SIZE + OFFSET + PADDING_LEFT,
+                            height - ((y as f32 + 1.0) * UNIT_SIZE + OFFSET + PADDING_TOP),
+                            0.0,
+                        ),
+                        scale: CELL_SIZE.extend(0.0),
+                        ..Default::default()
+                    },
+                    sprite: Sprite {
+                        color: CELL_COLOR,
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                },
+                pos,
+            ));
+        }
+    }
+}
+
+fn check_loading_completed(
+    mut next_state: ResMut<NextState<AppState>>,
+    asset_server: Res<AssetServer>,
+    mut assets_loading: ResMut<AssetsLoading>,
+) {
+    if assets_loading.is_empty() {
+        return;
+    }
+
+    if assets_loading
+        .iter()
+        .all(|h| asset_server.is_loaded_with_dependencies(h))
+    {
+        info!("Assets loaded");
+        assets_loading.clear();
+        next_state.set(AppState::Playing);
+    }
+}
+
+fn handle_game_ready(
+    mut commands: Commands,
+    q_level: Query<&Level>,
+    mut q_images: Query<&mut Transform, With<Handle<Image>>>,
+) {
+    info!("Game ready");
+
+    let level = q_level.single();
+
+    let height = (level.height() as f32 + 1.0) * UNIT_SIZE + PADDING_TOP + PADDING_BOTTOM;
+
+    // Spawn row and column headers
+
     let mut column_headers = vec![0; level.width()];
     let mut row_headers = vec![0; level.height()];
     level.iter().for_each(|c| {
         if c.has_wall() {
             column_headers[c.x()] += 1;
             row_headers[c.y()] += 1;
-        }
-
-        let transform = Transform {
-            translation: Vec3::new(
-                (c.x() as f32 + 1.0) * UNIT_SIZE + OFFSET + PADDING_LEFT,
-                height - ((c.y() as f32 + 1.0) * UNIT_SIZE + OFFSET + PADDING_TOP),
-                0.0,
-            ),
-            scale: CELL_SIZE.extend(0.0),
-            ..Default::default()
-        };
-        let cell_sprite = SpriteBundle {
-            transform,
-            sprite: Sprite {
-                color: CELL_COLOR,
-                ..Default::default()
-            },
-            ..Default::default()
-        };
-        let pos = (Row(c.y()), Column(c.x()));
-        match c.kind() {
-            CellKind::Wall | CellKind::Floor(CellFloor::Empty) => {
-                commands.spawn((
-                    GameComponent,
-                    FloorBundle {
-                        ..Default::default()
-                    },
-                    cell_sprite,
-                    pos,
-                ));
-            }
-            CellKind::Floor(CellFloor::Treasure) => {
-                commands.spawn((
-                    GameComponent,
-                    TreasureBundle {
-                        ..Default::default()
-                    },
-                    cell_sprite,
-                    pos,
-                ));
-                commands.spawn((
-                    GameComponent,
-                    SpriteBundle {
-                        transform: Transform {
-                            translation: Vec3::new(
-                                (c.x() as f32 + 1.0) * UNIT_SIZE + OFFSET + PADDING_LEFT,
-                                height - ((c.y() as f32 + 1.0) * UNIT_SIZE + OFFSET + PADDING_TOP),
-                                1.0,
-                            ),
-                            scale: Vec3::new(0.20, 0.20, 0.0),
-                            ..Default::default()
-                        },
-                        texture: asset_server.load("treasure.png"),
-                        ..Default::default()
-                    },
-                ));
-            }
-            CellKind::Floor(CellFloor::Monster) => {
-                commands.spawn((
-                    GameComponent,
-                    MonsterBundle {
-                        ..Default::default()
-                    },
-                    cell_sprite,
-                    pos,
-                ));
-                commands.spawn((
-                    GameComponent,
-                    SpriteBundle {
-                        transform: Transform {
-                            translation: Vec3::new(
-                                (c.x() as f32 + 1.0) * UNIT_SIZE + OFFSET + PADDING_LEFT,
-                                height - ((c.y() as f32 + 1.0) * UNIT_SIZE + OFFSET + PADDING_TOP),
-                                1.0,
-                            ),
-                            scale: Vec3::new(0.22, 0.22, 0.0),
-                            ..Default::default()
-                        },
-                        texture: asset_server.load(format!("monsters/{}.png", rnd.u32(1..=40))),
-                        ..Default::default()
-                    },
-                ));
-            }
         }
     });
 
@@ -335,6 +305,130 @@ fn spawn_game(
             HeaderText(*value),
         ));
     });
+
+    // Update monster and treasure z-index
+    q_images.iter_mut().for_each(|mut transform| {
+        transform.translation.z = 1.0;
+    });
+}
+
+fn generate_level(mut commands: Commands, config: Res<Config>) {
+    info!("Generating level");
+
+    // TODO: Trigger win condition in any solution when uniqueness not guaranteed
+    // let level = if config.width * config.height > 100 {
+    //     // Validating unique solution is too slow for large levels
+    //     Level::random(config.width, config.height)
+    // } else {
+    //     Level::random_unique_solution(config.width, config.height)
+    // };
+
+    commands.spawn((
+        GameComponent,
+        Level::random_unique_solution(config.width, config.height),
+    ));
+}
+
+fn spawn_level_components(
+    mut commands: Commands,
+    mut rnd: ResMut<RandomSource>,
+    asset_server: Res<AssetServer>,
+    q_level: Query<&Level>,
+) {
+    info!("Spawning game");
+
+    let level = q_level.single();
+
+    let height = (level.height() as f32 + 1.0) * UNIT_SIZE + PADDING_TOP + PADDING_BOTTOM;
+
+    let mut assets_loading: Vec<UntypedHandle> = Vec::new();
+    level.iter().for_each(|c| {
+        let position = (
+            Row(c.y()),
+            Column(c.x()),
+            Transform {
+                translation: Vec3::new(
+                    (c.x() as f32 + 1.0) * UNIT_SIZE + OFFSET + PADDING_LEFT,
+                    height - ((c.y() as f32 + 1.0) * UNIT_SIZE + OFFSET + PADDING_TOP),
+                    0.0,
+                ),
+                scale: CELL_SIZE.extend(0.0),
+                ..Default::default()
+            },
+        );
+
+        match c.kind() {
+            CellKind::Wall | CellKind::Floor(CellFloor::Empty) => {
+                commands.spawn((
+                    GameComponent,
+                    FloorBundle {
+                        ..Default::default()
+                    },
+                    position,
+                ));
+            }
+            CellKind::Floor(CellFloor::Treasure) => {
+                commands.spawn((
+                    GameComponent,
+                    TreasureBundle {
+                        ..Default::default()
+                    },
+                    position,
+                ));
+
+                let texture = asset_server.load("treasure.png");
+                assets_loading.push(texture.clone().untyped());
+
+                commands.spawn((
+                    GameComponent,
+                    SpriteBundle {
+                        transform: Transform {
+                            translation: Vec3::new(
+                                (c.x() as f32 + 1.0) * UNIT_SIZE + OFFSET + PADDING_LEFT,
+                                height - ((c.y() as f32 + 1.0) * UNIT_SIZE + OFFSET + PADDING_TOP),
+                                -10.0,
+                            ),
+                            scale: Vec3::new(0.20, 0.20, 0.0),
+                            ..Default::default()
+                        },
+                        texture,
+                        ..Default::default()
+                    },
+                ));
+            }
+            CellKind::Floor(CellFloor::Monster) => {
+                commands.spawn((
+                    GameComponent,
+                    MonsterBundle {
+                        ..Default::default()
+                    },
+                    position,
+                ));
+
+                let texture = asset_server.load(format!("monsters/{}.png", rnd.u32(1..=40)));
+                assets_loading.push(texture.clone().untyped());
+
+                commands.spawn((
+                    GameComponent,
+                    SpriteBundle {
+                        transform: Transform {
+                            translation: Vec3::new(
+                                (c.x() as f32 + 1.0) * UNIT_SIZE + OFFSET + PADDING_LEFT,
+                                height - ((c.y() as f32 + 1.0) * UNIT_SIZE + OFFSET + PADDING_TOP),
+                                -10.0,
+                            ),
+                            scale: Vec3::new(0.22, 0.22, 0.0),
+                            ..Default::default()
+                        },
+                        texture,
+                        ..Default::default()
+                    },
+                ));
+            }
+        }
+    });
+
+    commands.insert_resource(AssetsLoading(assets_loading));
 }
 
 fn handle_left_click(
@@ -662,6 +756,6 @@ fn handle_won_state_input(
             .any(|event| event.phase == TouchPhase::Ended)
     {
         info!("Restarting game");
-        next_state.set(AppState::Playing);
+        next_state.set(AppState::Loading);
     }
 }
