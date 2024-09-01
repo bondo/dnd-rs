@@ -12,7 +12,7 @@ fn main() {
             //     mode: AssetMode::Processed,
             //     ..Default::default()
             // }),
-            DungeonsAndDiagramsPlugin,
+            DungeonsAndDiagramsPlugin::default(),
         ))
         .run();
 }

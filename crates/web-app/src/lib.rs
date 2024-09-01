@@ -9,6 +9,6 @@ pub fn run() {
     utils::set_panic_hook();
 
     App::new()
-        .add_plugins((DefaultPlugins, DungeonsAndDiagramsPlugin))
+        .add_plugins((DefaultPlugins, DungeonsAndDiagramsPlugin::default()))
         .run();
 }

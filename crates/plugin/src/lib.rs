@@ -37,17 +37,28 @@ const CELL_SIZE: Vec2 = Vec2::new(UNIT_SIZE - BORDER_WIDTH, UNIT_SIZE - BORDER_W
 // - Add interface settings to change level size
 // - Add Android support
 
-pub struct DungeonsAndDiagramsPlugin;
+pub struct DungeonsAndDiagramsPlugin {
+    config: Config,
+}
+
+impl Default for DungeonsAndDiagramsPlugin {
+    fn default() -> Self {
+        Self::new(8, 8)
+    }
+}
+
+impl DungeonsAndDiagramsPlugin {
+    pub fn new(width: usize, height: usize) -> Self {
+        Self {
+            config: Config { width, height },
+        }
+    }
+}
 
 impl Plugin for DungeonsAndDiagramsPlugin {
     fn build(&self, app: &mut App) {
-        let config: Config = Config {
-            width: 8,
-            height: 8,
-        };
-
         app.init_state::<AppState>()
-            .insert_resource(config)
+            .insert_resource(self.config)
             .insert_resource(RandomSource(fastrand::Rng::new()))
             .insert_resource(AssetsLoading(Vec::new()))
             .add_systems(
@@ -97,7 +108,7 @@ enum AppState {
 #[derive(Resource, Deref, DerefMut)]
 struct AssetsLoading(Vec<UntypedHandle>);
 
-#[derive(Resource)]
+#[derive(Resource, Clone, Copy)]
 struct Config {
     width: usize,
     height: usize,
