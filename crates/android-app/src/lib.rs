@@ -14,7 +14,7 @@ fn main() {
             }),
             ..default()
         }),
-        DungeonsAndDiagramsPlugin::new(7, 10),
+        DungeonsAndDiagramsPlugin::new(7, 13),
     ));
 
     // MSAA makes some Android devices panic, this is under investigation
