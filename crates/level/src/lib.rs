@@ -84,40 +84,8 @@ impl Level {
         Ok(level)
     }
 
-    pub fn random_unique_solution(width: usize, height: usize) -> Result<Self, &'static str> {
-        let start = chrono::Utc::now();
-        let level = loop {
-            let level = Level::random(width, height)?;
-
-            let solver_start = chrono::Utc::now();
-            let mut solver = Solver::from_level(&level);
-            let Some(_) = solver.next() else {
-                panic!("Generated level without solution:\n{:?}", level);
-            };
-            let is_unique = solver.next().is_none();
-            info!(
-                "Solved level in {:?}",
-                chrono::Utc::now()
-                    .signed_duration_since(solver_start)
-                    .to_std()
-                    .unwrap()
-            );
-
-            if is_unique {
-                info!("Level has unique solution");
-                break level;
-            }
-
-            info!("Level has multiple solutions");
-        };
-        info!(
-            "Generated unique level in {:?}",
-            chrono::Utc::now()
-                .signed_duration_since(start)
-                .to_std()
-                .unwrap()
-        );
-        Ok(level)
+    pub fn builder(width: usize, height: usize) -> LevelBuilder {
+        LevelBuilder::new(width, height)
     }
 
     pub fn iter(&self) -> impl Iterator<Item = &Cell> {
@@ -155,5 +123,100 @@ impl From<GenLevel> for Level {
                 position,
             }),
         }
+    }
+}
+
+pub struct LevelBuilder {
+    width: usize,
+    height: usize,
+    check_unique_solution: bool,
+    check_too_many_walls: bool,
+}
+
+impl LevelBuilder {
+    pub fn new(width: usize, height: usize) -> Self {
+        LevelBuilder {
+            width,
+            height,
+            check_unique_solution: false,
+            check_too_many_walls: false,
+        }
+    }
+
+    pub fn check_unique_solution(mut self) -> Self {
+        self.check_unique_solution = true;
+        self
+    }
+
+    pub fn check_too_many_walls(mut self) -> Self {
+        self.check_too_many_walls = true;
+        self
+    }
+
+    pub fn build(&self) -> Result<Level, &'static str> {
+        let start = chrono::Utc::now();
+        let level = loop {
+            let level = Level::random(self.width, self.height)?;
+
+            if self.check_too_many_walls {
+                // Check that we don't have any 3x3 wall blocks
+                let has_too_many_walls = level.iter().any(|cell| {
+                    let x = cell.x();
+                    let y = cell.y();
+
+                    if x + 2 >= level.width() || y + 2 >= level.height() {
+                        return false;
+                    }
+
+                    (0..3).all(|dx| (0..3).all(|dy| level.is_wall(x + dx, y + dy)))
+                });
+
+                if has_too_many_walls {
+                    info!("Level has 3x3 wall blocks");
+                    continue;
+                } else {
+                    info!("Level has no 3x3 wall blocks");
+                }
+            }
+
+            if self.check_unique_solution {
+                let solver_start = chrono::Utc::now();
+                let mut solver = Solver::from_level(&level);
+                let Some(_) = solver.next() else {
+                    panic!("Generated level without solution:\n{:?}", level);
+                };
+                let has_unique_solution = solver.next().is_none();
+                info!(
+                    "Solved level in {:?}",
+                    chrono::Utc::now()
+                        .signed_duration_since(solver_start)
+                        .to_std()
+                        .unwrap()
+                );
+
+                if has_unique_solution {
+                    info!("Level has unique solution");
+                } else {
+                    info!("Level has multiple solutions");
+                    continue;
+                }
+            }
+
+            break level;
+        };
+        info!(
+            "Generated {} level in {:?}",
+            match (self.check_unique_solution, self.check_too_many_walls) {
+                (true, true) => "validated",
+                (true, false) => "unique",
+                (false, true) => "filtered",
+                (false, false) => "random",
+            },
+            chrono::Utc::now()
+                .signed_duration_since(start)
+                .to_std()
+                .unwrap()
+        );
+        Ok(level)
     }
 }

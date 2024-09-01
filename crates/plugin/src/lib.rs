@@ -42,7 +42,6 @@ const HIDE_IMAGES_UNTIL_ALL_LOADED: bool = cfg!(all(
 // - Handle long press events like right click
 // - Add indicator when monster is in a blind alley
 // - Add interface settings to change level size
-// - Add Android support
 
 pub struct DungeonsAndDiagramsPlugin {
     config: Config,
@@ -336,16 +335,14 @@ fn generate_level(mut commands: Commands, config: Res<Config>) {
     info!("Generating level");
 
     // TODO: Trigger win condition in any solution when uniqueness not guaranteed
-    // let level = if config.width * config.height > 100 {
-    //     // Validating unique solution is too slow for large levels
-    //     Level::random(config.width, config.height).unwrap()
-    // } else {
-    //     Level::random_unique_solution(config.width, config.height).unwrap()
-    // };
 
     commands.spawn((
         GameComponent,
-        Level::random_unique_solution(config.width, config.height).unwrap(),
+        Level::builder(config.width, config.height)
+            .check_too_many_walls()
+            .check_unique_solution()
+            .build()
+            .unwrap(),
     ));
 }
 
