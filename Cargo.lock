@@ -1495,7 +1495,7 @@ dependencies = [
 
 [[package]]
 name = "dnd-rs-android-app"
-version = "0.1.14"
+version = "0.1.15"
 dependencies = [
  "bevy",
  "dnd-rs-plugin",
@@ -1504,7 +1504,7 @@ dependencies = [
 
 [[package]]
 name = "dnd-rs-desktop-app"
-version = "0.1.14"
+version = "0.1.15"
 dependencies = [
  "bevy",
  "dnd-rs-plugin",
@@ -1513,7 +1513,7 @@ dependencies = [
 
 [[package]]
 name = "dnd-rs-level"
-version = "0.1.14"
+version = "0.1.15"
 dependencies = [
  "bevy",
  "chrono",
@@ -1524,7 +1524,7 @@ dependencies = [
 
 [[package]]
 name = "dnd-rs-plugin"
-version = "0.1.14"
+version = "0.1.15"
 dependencies = [
  "bevy",
  "dnd-rs-level",
@@ -1534,7 +1534,7 @@ dependencies = [
 
 [[package]]
 name = "dnd-rs-web-app"
-version = "0.1.14"
+version = "0.1.15"
 dependencies = [
  "bevy",
  "console_error_panic_hook",
