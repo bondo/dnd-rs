@@ -1494,6 +1494,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "dnd-rs-android-app"
+version = "0.1.13"
+dependencies = [
+ "bevy",
+ "dnd-rs-plugin",
+ "log",
+]
+
+[[package]]
 name = "dnd-rs-desktop-app"
 version = "0.1.13"
 dependencies = [

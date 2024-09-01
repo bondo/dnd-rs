@@ -15,3 +15,6 @@ rustflags = [
     # (Nightly) Make the current crate share its generic instantiations
     "-Zshare-generics=y",
 ]
+
+[target.aarch64-linux-android]
+linker = "aarch64-linux-android31-clang"

@@ -1,0 +1,33 @@
+[package]
+name = "dnd-rs-android-app"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+
+[lib]
+crate-type = ["staticlib", "cdylib"]
+
+[dependencies]
+bevy.workspace = true
+log.workspace = true
+dnd-rs-plugin = { path = "../plugin" }
+
+[package.metadata.android]
+package = "dk.bjarkebjarke.dnd"
+apk_name = "dnd"
+assets = "../../assets"
+resources = "../../assets/android-res"
+strip = "strip"
+build_targets = ["aarch64-linux-android", "armv7-linux-androideabi"]
+
+[package.metadata.android.sdk]
+target_sdk_version = 31
+
+[package.metadata.android.application]
+icon = "@mipmap/ic_launcher"
+label = "DnD"
+
+# This is for quick testing, used for debug builds
+[package.metadata.android.signing.release]
+path = "/home/bba/.android/debug.keystore"
+keystore_password = "android"
