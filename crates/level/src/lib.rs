@@ -159,23 +159,44 @@ impl LevelBuilder {
             let level = Level::random(self.width, self.height)?;
 
             if self.check_too_many_walls {
-                // Check that we don't have any 3x3 wall blocks
                 let has_too_many_walls = level.iter().any(|cell| {
                     let x = cell.x();
                     let y = cell.y();
 
-                    if x + 2 >= level.width() || y + 2 >= level.height() {
-                        return false;
+                    // Check for 3x3 wall blocks
+                    if x + 2 < level.width()
+                        && y + 2 < level.height()
+                        && (0..3).all(|dx| (0..3).all(|dy| level.is_wall(x + dx, y + dy)))
+                    {
+                        info!("Level has 3x3 wall blocks");
+                        return true;
                     }
 
-                    (0..3).all(|dx| (0..3).all(|dy| level.is_wall(x + dx, y + dy)))
+                    // Check for 2x4 wall blocks
+                    if x + 1 < level.width()
+                        && y + 3 < level.height()
+                        && (0..2).all(|dx| (0..4).all(|dy| level.is_wall(x + dx, y + dy)))
+                    {
+                        info!("Level has 2x4 wall blocks");
+                        return true;
+                    }
+
+                    // Check for 4x2 wall blocks
+                    if x + 3 < level.width()
+                        && y + 1 < level.height()
+                        && (0..4).all(|dx| (0..2).all(|dy| level.is_wall(x + dx, y + dy)))
+                    {
+                        info!("Level has 4x2 wall blocks");
+                        return true;
+                    }
+
+                    return false;
                 });
 
                 if has_too_many_walls {
-                    info!("Level has 3x3 wall blocks");
                     continue;
                 } else {
-                    info!("Level has no 3x3 wall blocks");
+                    info!("Level has no big wall blocks");
                 }
             }
 
