@@ -56,6 +56,29 @@ jobs:
           name: dnd-${{matrix.platform.target}}.${{ matrix.platform.archive_ext }}
           path: dnd-${{matrix.platform.target}}.${{ matrix.platform.archive_ext }}
 
+  build-android-apk:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Set up Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: nightly-2024-08-27
+          target: aarch64-linux-android
+      - name: Build
+        run: cargo apk build -p dnd-rs-android-app --release --lib
+      - name: Move APK
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: mv target/release/apk/dnd.apk dnd-android.apk
+      - name: Upload artifact
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: actions/upload-artifact@v4
+        with:
+          name: dnd-android.apk
+          path: dnd-android.apk
+
   web-deploy:
     name: Release for web
     runs-on: ubuntu-latest
@@ -91,6 +114,7 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v')
     needs:
       - artifacts
+      - build-android-apk
       - web-deploy
     permissions:
       contents: write
