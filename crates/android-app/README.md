@@ -23,6 +23,7 @@ export PATH=$ANDROID_HOME/platform-tools/:$ANDROID_NDK_HOME/toolchains/llvm/preb
 - Install xbuild: `cargo install xbuild`
 - Resolve issues identified by `x doctor`
 
+
 ## Run on device / emulator
 
 - List devices with `x devices`
@@ -32,8 +33,17 @@ export PATH=$ANDROID_HOME/platform-tools/:$ANDROID_NDK_HOME/toolchains/llvm/preb
 ## Create APK (for side loading)
 
 - Install cargo-apk: `cargo install cargo-apk`
+- Generate a keystore and set environment variables
+
+```
+keytool -genkeypair -keystore release.keystore -alias android -keyalg RSA -keysize 2048 -validity 10000
+CARGO_APK_RELEASE_KEYSTORE=/path/to/release.keystore
+CARGO_APK_RELEASE_KEYSTORE_PASSWORD=keystore password
+```
+
 - Run `cargo apk build -p dnd-rs-android-app --release --lib`
 - Output: `target/release/apk/dnd.apk`
+- Alternatively drop the `--release` parameter to use a debug keystore
 
 ## Create AAB (for Play Store)
 
