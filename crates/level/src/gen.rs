@@ -101,26 +101,6 @@ impl GenLevel {
             })
         }
 
-        // Top left corner
-        if treasure_room_x > 0 && treasure_room_y > 0 {
-            grid[(treasure_room_x - 1, treasure_room_y - 1).into()] = GenCell::Wall;
-        }
-
-        // Top right corner
-        if treasure_room_x + 3 < width && treasure_room_y > 0 {
-            grid[(treasure_room_x + 3, treasure_room_y - 1).into()] = GenCell::Wall;
-        }
-
-        // Bottom left corner
-        if treasure_room_x > 0 && treasure_room_y + 3 < height {
-            grid[(treasure_room_x - 1, treasure_room_y + 3).into()] = GenCell::Wall;
-        }
-
-        // Bottom right corner
-        if treasure_room_x + 3 < width && treasure_room_y + 3 < height {
-            grid[(treasure_room_x + 3, treasure_room_y + 3).into()] = GenCell::Wall;
-        }
-
         let exit = potential_exits[rng.usize(0..potential_exits.len())];
         grid[exit] = GenCell::Any;
 
