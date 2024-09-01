@@ -10,6 +10,9 @@ use grid::{Grid, GridPos};
 mod solver;
 pub use solver::Solver;
 
+mod smart_solver;
+pub use smart_solver::SmartSolver;
+
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum CellFloor {
     Empty,
