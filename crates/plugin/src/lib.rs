@@ -338,14 +338,14 @@ fn generate_level(mut commands: Commands, config: Res<Config>) {
     // TODO: Trigger win condition in any solution when uniqueness not guaranteed
     // let level = if config.width * config.height > 100 {
     //     // Validating unique solution is too slow for large levels
-    //     Level::random(config.width, config.height)
+    //     Level::random(config.width, config.height).unwrap()
     // } else {
-    //     Level::random_unique_solution(config.width, config.height)
+    //     Level::random_unique_solution(config.width, config.height).unwrap()
     // };
 
     commands.spawn((
         GameComponent,
-        Level::random_unique_solution(config.width, config.height),
+        Level::random_unique_solution(config.width, config.height).unwrap(),
     ));
 }
 

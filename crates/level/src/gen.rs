@@ -32,9 +32,10 @@ impl Debug for GenCell {
 pub(crate) type GenLevel = Grid<GenCell>;
 
 impl GenLevel {
-    pub fn random(width: usize, height: usize) -> Self {
-        assert!(width >= 6);
-        assert!(height >= 6);
+    pub fn random(width: usize, height: usize) -> Result<Self, &'static str> {
+        if width < 6 || height < 6 {
+            return Err("width and height must be at least 6");
+        }
 
         let mut grid = Grid::new(width, height, GenCell::Any);
         let mut rng = Rng::new();
@@ -121,7 +122,7 @@ impl GenLevel {
             work_queue.extend(grid.filtered_neighbors(p, |n| n == &GenCell::Any));
         }
 
-        grid
+        Ok(grid)
     }
 }
 

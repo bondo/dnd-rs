@@ -10,7 +10,7 @@ fn run_level_generation_benchmark(c: &mut Criterion) {
             seed += 1;
             fastrand::seed(seed);
 
-            Level::random(black_box(50), black_box(50))
+            Level::random(black_box(50), black_box(50)).unwrap()
         })
     });
 }
@@ -19,7 +19,7 @@ fn run_solver_benchmarks(c: &mut Criterion) {
     fastrand::seed(1337);
     c.bench_function("solve 8x8 level", |b| {
         b.iter_batched_ref(
-            || Level::random(8, 8),
+            || Level::random(8, 8).unwrap(),
             |level| Solver::from_level(level).first_solution(),
             BatchSize::SmallInput,
         );

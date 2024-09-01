@@ -551,7 +551,7 @@ mod tests {
 
     #[test]
     fn test_solve_level_random() {
-        let level = Level::random(8, 8);
+        let level = Level::random(8, 8).unwrap();
         let solver = Solver::from_level(&level);
         let solutions = solver.all_solutions();
         assert!(

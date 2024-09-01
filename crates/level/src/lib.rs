@@ -71,9 +71,9 @@ pub struct Level {
 }
 
 impl Level {
-    pub fn random(width: usize, height: usize) -> Self {
+    pub fn random(width: usize, height: usize) -> Result<Self, &'static str> {
         let level_start = chrono::Utc::now();
-        let level = GenLevel::random(width, height).into();
+        let level = GenLevel::random(width, height)?.into();
         info!(
             "Generated level in {:?}",
             chrono::Utc::now()
@@ -81,13 +81,13 @@ impl Level {
                 .to_std()
                 .unwrap()
         );
-        level
+        Ok(level)
     }
 
-    pub fn random_unique_solution(width: usize, height: usize) -> Self {
+    pub fn random_unique_solution(width: usize, height: usize) -> Result<Self, &'static str> {
         let start = chrono::Utc::now();
         let level = loop {
-            let level = Level::random(width, height);
+            let level = Level::random(width, height)?;
 
             let solver_start = chrono::Utc::now();
             let mut solver = Solver::from_level(&level);
@@ -117,7 +117,7 @@ impl Level {
                 .to_std()
                 .unwrap()
         );
-        level
+        Ok(level)
     }
 
     pub fn iter(&self) -> impl Iterator<Item = &Cell> {
