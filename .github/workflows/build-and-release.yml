@@ -67,8 +67,10 @@ jobs:
         with:
           toolchain: nightly-2024-08-27
           target: aarch64-linux-android
+      - name: Install cargo-apk
+        run: cargo install cargo-apk
       - name: Build
-        run: cargo apk build -p dnd-rs-android-app --release --lib
+        run: cargo apk build -p dnd-rs-android-app --release --lib --target aarch64-linux-android
       - name: Move APK
         if: startsWith(github.ref, 'refs/tags/v')
         run: mv target/release/apk/dnd.apk dnd-android.apk
@@ -107,6 +109,33 @@ jobs:
           directory: crates/web-app/assets
           branch: main
           wranglerVersion: "3"
+
+  # android-apk:
+  #   name: Build Android APK
+  #   runs-on: ubuntu-latest
+  #   if: startsWith(github.ref, 'refs/tags/v')
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
+  #     - name: Set up Rust
+  #       uses: actions-rust-lang/setup-rust-toolchain@v1
+  #       with:
+  #         toolchain: nightly-2024-08-27
+  #         target: aarch64-linux-android
+  #     - name: Install Android NDK
+  #       uses: r0mflip/setup-android-ndk@v2
+  #       with:
+  #         version: '21.4.7075529'
+  #     - name: Build
+  #       run: cargo build --release --target aarch64-linux-android
+  #     - name: Archive
+  #       run: |
+  #         mv target/aarch64-linux-android/release/libdnd.so .
+  #         zip -r dnd-android.zip libdnd.so
+  #     - name: Upload artifact
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: dnd-android.zip
 
   release:
     name: Create Release
