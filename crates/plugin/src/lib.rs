@@ -31,6 +31,13 @@ const BORDER_COLOR: Color = Color::srgb(0.0, 0.0, 0.0);
 const BORDER_WIDTH: f32 = UNIT_SIZE * 0.05;
 const CELL_SIZE: Vec2 = Vec2::new(UNIT_SIZE - BORDER_WIDTH, UNIT_SIZE - BORDER_WIDTH);
 
+// On web, hide image assets until they are all loaded.
+// We can't do this always as it breaks on Android. Besides, non-web platforms load assets quickly.
+const HIDE_IMAGES_UNTIL_ALL_LOADED: bool = cfg!(all(
+    any(target_arch = "wasm32", target_arch = "wasm64"),
+    target_os = "unknown"
+));
+
 // TODO:
 // - Handle long press events like right click
 // - Add indicator when monster is in a blind alley
@@ -317,10 +324,12 @@ fn handle_game_ready(
         ));
     });
 
-    // Update monster and treasure z-index
-    q_images.iter_mut().for_each(|mut transform| {
-        transform.translation.z = 1.0;
-    });
+    if HIDE_IMAGES_UNTIL_ALL_LOADED {
+        // Update monster and treasure z-index
+        q_images.iter_mut().for_each(|mut transform| {
+            transform.translation.z = 1.0;
+        });
+    }
 }
 
 fn generate_level(mut commands: Commands, config: Res<Config>) {
@@ -397,7 +406,11 @@ fn spawn_level_components(
                             translation: Vec3::new(
                                 (c.x() as f32 + 1.0) * UNIT_SIZE + OFFSET + PADDING_LEFT,
                                 height - ((c.y() as f32 + 1.0) * UNIT_SIZE + OFFSET + PADDING_TOP),
-                                -10.0,
+                                if HIDE_IMAGES_UNTIL_ALL_LOADED {
+                                    -10.0
+                                } else {
+                                    1.0
+                                },
                             ),
                             scale: Vec3::new(0.20, 0.20, 0.0),
                             ..Default::default()
@@ -426,7 +439,11 @@ fn spawn_level_components(
                             translation: Vec3::new(
                                 (c.x() as f32 + 1.0) * UNIT_SIZE + OFFSET + PADDING_LEFT,
                                 height - ((c.y() as f32 + 1.0) * UNIT_SIZE + OFFSET + PADDING_TOP),
-                                -10.0,
+                                if HIDE_IMAGES_UNTIL_ALL_LOADED {
+                                    -10.0
+                                } else {
+                                    1.0
+                                },
                             ),
                             scale: Vec3::new(0.22, 0.22, 0.0),
                             ..Default::default()
