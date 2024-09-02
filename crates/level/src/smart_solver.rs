@@ -1,4 +1,5 @@
 use bevy::utils::HashSet;
+use rayon::prelude::*;
 
 use crate::{
     grid::{Grid, GridPos},
@@ -14,8 +15,8 @@ enum SmartSolverCell {
     Treasure,
 }
 
-// TODO: Add rayon for parallelism, unless it's on wasm
 // TODO: Remove old solver
+// TODO: Use [wasm-bindgen-rayon](https://github.com/RReverser/wasm-bindgen-rayon) for parallelism on wasm
 
 impl From<&Cell> for SmartSolverCell {
     fn from(value: &Cell) -> Self {
@@ -726,14 +727,19 @@ impl SmartSolver {
             return Vec::new();
         }
 
-        let mut solutions = Vec::new();
         if let Some(unhandled_treasure) = self.unhandled_treasures.pop() {
-            for (room, exit) in self.possible_treasure_rooms(unhandled_treasure) {
-                let mut solver = self.clone();
-                if solver.place_treasure_room(room, exit).is_ok() {
-                    solutions.extend(solver.all_solutions());
-                }
-            }
+            self.possible_treasure_rooms(unhandled_treasure)
+                .into_par_iter()
+                .map(|(room, exit)| {
+                    let mut solver = self.clone();
+                    if solver.place_treasure_room(room, exit).is_ok() {
+                        solver.all_solutions()
+                    } else {
+                        Vec::new()
+                    }
+                })
+                .flatten()
+                .collect::<Vec<_>>()
         } else {
             // TODO: Try smarter cell selection
 
@@ -741,37 +747,46 @@ impl SmartSolver {
                 self.next_pos = self.level.next_pos(&pos);
 
                 if self.level[pos] == SmartSolverCell::Unknown {
-                    let mut solver = self.clone();
-                    if solver.put_wall(pos).is_ok() {
-                        solutions.extend(solver.all_solutions());
-                    }
+                    let (wall_result, hallway_result) = rayon::join(
+                        || {
+                            let mut solver = self.clone();
+                            if solver.put_wall(pos).is_ok() {
+                                solver.all_solutions()
+                            } else {
+                                Vec::new()
+                            }
+                        },
+                        || {
+                            if pos.x == 0
+                                || pos.y == 0
+                                || !matches!(
+                                    (
+                                        self.level[(pos.x - 1, pos.y).into()],
+                                        self.level[(pos.x, pos.y - 1).into()],
+                                        self.level[(pos.x - 1, pos.y - 1).into()],
+                                    ),
+                                    (
+                                        SmartSolverCell::Hallway,
+                                        SmartSolverCell::Hallway,
+                                        SmartSolverCell::Hallway
+                                    )
+                                )
+                            {
+                                let mut solver = self.clone();
+                                solver.put_hallway(pos);
+                                solver.all_solutions()
+                            } else {
+                                Vec::new()
+                            }
+                        },
+                    );
 
-                    if pos.x == 0
-                        || pos.y == 0
-                        || !matches!(
-                            (
-                                self.level[(pos.x - 1, pos.y).into()],
-                                self.level[(pos.x, pos.y - 1).into()],
-                                self.level[(pos.x - 1, pos.y - 1).into()],
-                            ),
-                            (
-                                SmartSolverCell::Hallway,
-                                SmartSolverCell::Hallway,
-                                SmartSolverCell::Hallway
-                            )
-                        )
-                    {
-                        let mut solver = self.clone();
-                        solver.put_hallway(pos);
-                        solutions.extend(solver.all_solutions());
-                    }
-
-                    break;
+                    return [wall_result, hallway_result].concat();
                 }
             }
-        }
 
-        solutions
+            Vec::new()
+        }
     }
 }
 

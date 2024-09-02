@@ -9,6 +9,7 @@ bevy.workspace = true
 chrono.workspace = true
 fastrand.workspace = true
 log.workspace = true
+rayon.workspace = true
 
 [dev-dependencies]
 criterion.workspace = true
