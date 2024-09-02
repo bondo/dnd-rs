@@ -16,7 +16,10 @@ bevy = { version = "0.14.1", default-features = false, features = [
     "png",
     "x11",
 ] }
-criterion = { version = "0.5.1" }
+criterion = { version = "0.5.1", default-features = false, features = [
+    "plotters",
+    "cargo_bench_support",
+] }
 chrono = { version = "0.4.38", default-features = false, features = [
     "now",
     "wasmbind",
