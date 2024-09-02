@@ -1,7 +1,7 @@
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
 use std::hint::black_box;
 
-use dnd_rs_level::{Level, SmartSolver, Solver};
+use dnd_rs_level::{Level, Solver};
 
 fn run_level_generation_benchmark(c: &mut Criterion) {
     let mut seed = 0;
@@ -25,19 +25,10 @@ fn run_solver_benchmarks(c: &mut Criterion) {
         );
     });
 
-    fastrand::seed(1337);
-    c.bench_function("smart solve 11x11 level", |b| {
-        b.iter_batched_ref(
-            || Level::random(11, 11).unwrap(),
-            |level| SmartSolver::from_level(level).first_solution(),
-            BatchSize::SmallInput,
-        );
-    });
-
     // Compare to https://github.com/MischaU8/dungeons_diagrams/tree/bf29a0454aec28476ac80286e130feeaa4081dec?tab=readme-ov-file#usage
     c.bench_function("solve nimble example", |b| {
         b.iter(|| {
-            SmartSolver::try_from(black_box(
+            Solver::try_from(black_box(
                 r#"
   1 4 2 7 0 4 4 4
 3 ? ? ? ? ? ? ? ?
