@@ -14,6 +14,10 @@ enum SmartSolverCell {
     Treasure,
 }
 
+// TODO: Fix clippy lints
+// TODO: Add rayon for parallelism, unless it's on wasm
+// TODO: Remove old solver
+
 impl From<&Cell> for SmartSolverCell {
     fn from(value: &Cell) -> Self {
         match value.kind {
@@ -182,6 +186,7 @@ impl SmartSolverLevel {
         if pos.x + 1 >= self.width() || pos.y + 1 >= self.height() {
             return false;
         }
+        // TODO: Try with matches! instead, or `[(0, 0), (0, 1), (1, 0), (1, 1)].into_iter()`
         for x in pos.x..=pos.x + 1 {
             for y in pos.y..=pos.y + 1 {
                 if matches!(
@@ -307,11 +312,11 @@ impl SmartSolver {
     fn put_wall(&mut self, pos: GridPos) -> Result<(), ()> {
         debug_assert_eq!(self.level[pos], SmartSolverCell::Unknown);
 
-        self.level[pos] = SmartSolverCell::Wall;
-
         if self.row_missing_walls[pos.y] == 0 || self.col_missing_walls[pos.x] == 0 {
             return Err(());
         }
+
+        self.level[pos] = SmartSolverCell::Wall;
 
         self.row_missing_walls[pos.y] -= 1;
         self.col_missing_walls[pos.x] -= 1;
