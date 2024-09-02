@@ -709,11 +709,11 @@ impl SmartSolver {
         Ok(())
     }
 
-    pub fn first_solution(&mut self) -> Option<Level> {
+    pub fn first_solution(self) -> Option<Level> {
         self.all_solutions().pop()
     }
 
-    pub fn all_solutions(&mut self) -> Vec<Level> {
+    pub fn all_solutions(mut self) -> Vec<Level> {
         if self.fill_out_logical_values().is_err() {
             return Vec::new();
         }
@@ -879,7 +879,7 @@ mod tests {
     fn test_solve_level_random() {
         for _ in 0..1000 {
             let level = Level::random(8, 8).unwrap();
-            let mut solver = SmartSolver::from_level(&level);
+            let solver = SmartSolver::from_level(&level);
             let solutions = solver.all_solutions();
             assert!(
                 solutions.contains(&level),
@@ -906,7 +906,7 @@ M#.##...
             .unwrap(),
         );
 
-        let mut solver = SmartSolver::from_level(&level);
+        let solver = SmartSolver::from_level(&level);
         let solutions = solver.all_solutions();
         assert!(
             solutions.contains(&level),
@@ -932,7 +932,7 @@ M.#.M#.M
             .unwrap(),
         );
 
-        let mut solver = SmartSolver::from_level(&level);
+        let solver = SmartSolver::from_level(&level);
         let solutions = solver.all_solutions();
         assert!(
             solutions.contains(&level),
@@ -942,7 +942,7 @@ M.#.M#.M
 
     #[test]
     fn test_solve_level_weird() {
-        let mut solver = SmartSolver::try_from(
+        let solver = SmartSolver::try_from(
             r#"
   4 3 3 5 2 3 2 3
 4 ? ? M ? ? ? ? ?
@@ -979,7 +979,7 @@ M.#M#..#
 
     #[test]
     fn test_solve_level_weird2() {
-        let mut solver = SmartSolver::try_from(
+        let solver = SmartSolver::try_from(
             r#"
   2 2 2 4 2 3 3 2
 1 ? ? ? ? ? ? ? ?
@@ -1018,7 +1018,7 @@ M......M
     fn test_solve_level_nimble() {
         // Source of example: https://github.com/MischaU8/dungeons_diagrams/tree/bf29a0454aec28476ac80286e130feeaa4081dec?tab=readme-ov-file#usage
 
-        let mut solver = SmartSolver::try_from(
+        let solver = SmartSolver::try_from(
             r#"
   1 4 2 7 0 4 4 4
 3 ? ? ? ? ? ? ? ?
@@ -1057,7 +1057,7 @@ M......M
 
     #[test]
     fn test_solve_sample() {
-        let mut solver = SmartSolver::try_from(
+        let solver = SmartSolver::try_from(
             r#"
   4 2 4 1 2 1
 3 ? ? ? ? ? T
@@ -1090,7 +1090,7 @@ M##...
 
     #[test]
     fn test_solve_tenaxxuss_gullet() {
-        let mut solver = SmartSolver::try_from(
+        let solver = SmartSolver::try_from(
             r#"
   4 4 2 6 2 3 4 7
 7 ? ? ? ? ? M ? ?
@@ -1127,7 +1127,7 @@ M......#
 
     #[test]
     fn test_solve_the_twin_cities_of_the_dead() {
-        let mut solver = SmartSolver::try_from(
+        let solver = SmartSolver::try_from(
             r#"
   1 3 1 5 3 4 3 5
 5 ? ? ? ? ? ? ? ?
@@ -1164,7 +1164,7 @@ M#.#####
 
     #[test]
     fn test_solve_the_hive_of_great_sorrow() {
-        let mut solver = SmartSolver::try_from(
+        let solver = SmartSolver::try_from(
             r#"
   3 6 0 5 4 0 6 3
 6 ? ? M ? ? M ? ?
