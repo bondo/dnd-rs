@@ -706,6 +706,10 @@ impl SmartSolver {
         Ok(())
     }
 
+    pub fn first_solution(&mut self) -> Option<Level> {
+        self.all_solutions().pop()
+    }
+
     pub fn all_solutions(&mut self) -> Vec<Level> {
         if self.fill_out_logical_values().is_err() {
             return Vec::new();
