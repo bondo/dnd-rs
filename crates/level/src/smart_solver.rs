@@ -437,12 +437,11 @@ impl SmartSolver {
                     return Err(());
                 }
 
-                let hallway_neigbors = non_wall_neighbors
-                    .iter()
-                    .filter(|&&n| self.level[n] == SmartSolverCell::Hallway)
-                    .collect::<Vec<_>>();
+                let num_hallway_neigbors = self
+                    .level
+                    .count_neighbors(pos, |&n| n == SmartSolverCell::Hallway);
 
-                match hallway_neigbors.len() {
+                match num_hallway_neigbors {
                     0 => {
                         let mut sure_ways_out = if non_wall_neighbors.len() == 1 {
                             non_wall_neighbors
