@@ -137,6 +137,10 @@ impl<C> Grid<C> {
             height: self.height,
         }
     }
+
+    pub(crate) fn iter_mut_cells(&mut self) -> impl Iterator<Item = &mut C> {
+        self.cells.iter_mut()
+    }
 }
 
 impl<C: Debug> Debug for Grid<C> {

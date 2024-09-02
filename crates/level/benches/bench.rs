@@ -26,9 +26,9 @@ fn run_solver_benchmarks(c: &mut Criterion) {
     });
 
     fastrand::seed(1337);
-    c.bench_function("smart solve 10x10 level", |b| {
+    c.bench_function("smart solve 11x11 level", |b| {
         b.iter_batched_ref(
-            || Level::random(10, 10).unwrap(),
+            || Level::random(11, 11).unwrap(),
             |level| SmartSolver::from_level(level).first_solution(),
             BatchSize::SmallInput,
         );

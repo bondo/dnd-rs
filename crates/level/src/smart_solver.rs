@@ -178,43 +178,6 @@ impl SmartSolverLevel {
             .collect()
     }
 
-    fn count_islands(&self) -> usize {
-        let mut visited = Grid::new(self.width(), self.height(), false);
-        let mut islands = 0;
-
-        self.iter().for_each(|(&cell, pos)| {
-            if visited[pos] {
-                return;
-            }
-
-            if cell == SmartSolverCell::Wall {
-                return;
-            }
-
-            let mut stack = vec![pos];
-            visited[pos] = true;
-
-            while let Some(pos) = stack.pop() {
-                for neighbor in self.iter_neighbors(pos) {
-                    if visited[neighbor] {
-                        continue;
-                    }
-
-                    if self[neighbor] == SmartSolverCell::Wall {
-                        continue;
-                    }
-
-                    visited[neighbor] = true;
-                    stack.push(neighbor);
-                }
-            }
-
-            islands += 1;
-        });
-
-        islands
-    }
-
     fn is_wide_hallway(&self, pos: GridPos) -> bool {
         if pos.x + 1 >= self.width() || pos.y + 1 >= self.height() {
             return false;
@@ -246,6 +209,7 @@ pub struct SmartSolver {
     unhandled_treasures: Vec<GridPos>,
     placed_treasure_rooms: Vec<GridPos>,
     next_pos: Option<GridPos>,
+    islands: IslandTracker,
 }
 
 impl std::fmt::Debug for SmartSolver {
@@ -319,7 +283,13 @@ impl SmartSolver {
             col_unknown_count[x] = level.count_col(x, |c| c == &SmartSolverCell::Unknown);
         }
 
+        let mut islands = IslandTracker::new(level.width(), level.height());
+        for pos in &treasures {
+            islands.mark_pos(*pos);
+        }
+
         Self {
+            islands,
             level,
             row_missing_walls: row_numbers.clone(),
             col_missing_walls: col_numbers.clone(),
@@ -359,6 +329,36 @@ impl SmartSolver {
 
         self.row_unknown_count[pos.y] -= 1;
         self.col_unknown_count[pos.x] -= 1;
+
+        self.islands.mark_pos(pos);
+    }
+
+    fn has_unmergable_islands(&self) -> bool {
+        if self.islands.num_islands < 2 {
+            return false;
+        }
+
+        let mut has_unknown = HashSet::new();
+
+        for y in 0..self.level.height() {
+            for x in 0..self.level.width() {
+                let pos = (x, y).into();
+                if let Some(island_id) = self.islands.get(pos) {
+                    if has_unknown.contains(&island_id) {
+                        continue;
+                    }
+                    if self
+                        .level
+                        .iter_neighbors(pos)
+                        .any(|n| self.level[n] == SmartSolverCell::Unknown)
+                    {
+                        has_unknown.insert(island_id);
+                    }
+                }
+            }
+        }
+
+        has_unknown.len() < self.islands.num_islands
     }
 
     fn fill_out_logical_values(&mut self) -> Result<(), ()> {
@@ -502,6 +502,11 @@ impl SmartSolver {
     }
 
     fn check_full_validity(&self) -> bool {
+        // all unshaded squares connected into single continuous shape
+        if self.islands.num_islands != 1 {
+            return false;
+        }
+
         if self.row_missing_walls.iter().any(|&n| n > 0) {
             return false;
         }
@@ -555,11 +560,6 @@ impl SmartSolver {
             }
             true
         }) {
-            return false;
-        }
-
-        // all unshaded squares connected into single continuous shape
-        if self.level.count_islands() != 1 {
             return false;
         }
 
@@ -719,6 +719,10 @@ impl SmartSolver {
             return vec![Level::from(&self.level)];
         }
 
+        if self.has_unmergable_islands() {
+            return Vec::new();
+        }
+
         let mut solutions = Vec::new();
 
         if let Some(unhandled_treasure) = self.unhandled_treasures.pop() {
@@ -772,6 +776,102 @@ impl SmartSolver {
     }
 }
 
+#[derive(Clone, Copy)]
+struct IslandCell(Option<usize>);
+
+type IslandGrid = Grid<IslandCell>;
+
+#[derive(Clone)]
+struct IslandTracker {
+    islands: IslandGrid,
+    next_id: usize,
+    num_islands: usize,
+}
+
+impl IslandTracker {
+    fn new(width: usize, height: usize) -> Self {
+        Self {
+            islands: Grid::new(width, height, IslandCell(None)),
+            next_id: 0,
+            num_islands: 0,
+        }
+    }
+
+    fn get(&self, pos: GridPos) -> Option<usize> {
+        self.islands[pos].0
+    }
+
+    fn mark_pos(&mut self, pos: GridPos) {
+        debug_assert!(self.islands[pos].0.is_none());
+
+        let mut neighbors = self
+            .islands
+            .iter_neighbors(pos)
+            .filter_map(|v| self.islands[v].0)
+            .collect::<Vec<_>>();
+        neighbors.sort();
+        neighbors.dedup();
+
+        match neighbors.len() {
+            0 => {
+                self.islands[pos] = IslandCell(Some(self.next_id));
+                self.next_id += 1;
+                self.num_islands += 1;
+            }
+            1 => {
+                self.islands[pos] = IslandCell(Some(neighbors[0]));
+            }
+            _ => {
+                let island_id = neighbors.pop().unwrap();
+                self.islands[pos] = IslandCell(Some(island_id));
+                self.num_islands -= neighbors.len();
+
+                self.islands.iter_mut_cells().for_each(|v| {
+                    if v.0.is_some_and(|v| neighbors.contains(&v)) {
+                        *v = IslandCell(Some(island_id));
+                    }
+                });
+            }
+        }
+    }
+}
+
+impl std::fmt::Debug for IslandCell {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self.0 {
+            Some(id) => write!(f, "{id}"),
+            None => write!(f, "."),
+        }
+    }
+}
+
+impl std::fmt::Debug for IslandTracker {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "IslandTracker - #islands {}", self.num_islands)?;
+
+        let islands = format!("{:?}", self.islands);
+        let islands_rows = islands.trim().split('\n').collect::<Vec<_>>();
+
+        // Print column header
+        write!(f, "   ")?;
+        for i in 0..self.islands.width() {
+            write!(f, " {i}")?;
+        }
+        writeln!(f)?;
+
+        // Print rows, prefixed with row header
+        for (i, row) in islands_rows.iter().enumerate() {
+            write!(f, "  {i}")?;
+            for c in row.chars() {
+                write!(f, " {c}")?;
+            }
+            writeln!(f)?;
+        }
+
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -790,7 +890,7 @@ mod tests {
     }
 
     #[test]
-    fn test_solve_regression() {
+    fn test_solve_regression1() {
         let level = Level::from(
             &SmartSolverLevel::try_from(
                 r#"
@@ -802,6 +902,32 @@ M.##...#
 #..M#.#M
 M#.##...
 ......#M
+"#,
+            )
+            .unwrap(),
+        );
+
+        let mut solver = SmartSolver::from_level(&level);
+        let solutions = solver.all_solutions();
+        assert!(
+            solutions.contains(&level),
+            "Level {level:?} not found in solutions: {solutions:?}"
+        );
+    }
+
+    #[test]
+    fn test_solve_regression2() {
+        let level = Level::from(
+            &SmartSolverLevel::try_from(
+                r#"
+...#M.M#
+...##.#M
+..T.....
+###.#.#M
+....#..#
+M##.M#.M
+#...#M.#
+M.#.M#.M
 "#,
             )
             .unwrap(),
