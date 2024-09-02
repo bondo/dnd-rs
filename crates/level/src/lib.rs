@@ -193,7 +193,7 @@ impl LevelBuilder {
                         return true;
                     }
 
-                    return false;
+                    false
                 });
 
                 if has_too_many_walls {

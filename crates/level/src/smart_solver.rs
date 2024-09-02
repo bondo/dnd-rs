@@ -14,7 +14,6 @@ enum SmartSolverCell {
     Treasure,
 }
 
-// TODO: Fix clippy lints
 // TODO: Add rayon for parallelism, unless it's on wasm
 // TODO: Remove old solver
 
@@ -281,11 +280,11 @@ impl SmartSolver {
 
         let mut row_unknown_count = vec![0; level.height()];
         let mut col_unknown_count = vec![0; level.width()];
-        for y in 0..level.height() {
-            row_unknown_count[y] = level.count_row(y, |c| c == &SmartSolverCell::Unknown);
+        for (y, count) in row_unknown_count.iter_mut().enumerate() {
+            *count = level.count_row(y, |c| c == &SmartSolverCell::Unknown);
         }
-        for x in 0..level.width() {
-            col_unknown_count[x] = level.count_col(x, |c| c == &SmartSolverCell::Unknown);
+        for (x, count) in col_unknown_count.iter_mut().enumerate() {
+            *count = level.count_col(x, |c| c == &SmartSolverCell::Unknown);
         }
 
         let mut islands = IslandTracker::new(level.width(), level.height());
@@ -438,7 +437,7 @@ impl SmartSolver {
                     .filter(|&n| self.level[n] != SmartSolverCell::Wall)
                     .collect::<Vec<_>>();
 
-                if non_wall_neighbors.len() == 0 {
+                if non_wall_neighbors.is_empty() {
                     return Err(());
                 }
 
