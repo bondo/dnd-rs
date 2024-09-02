@@ -728,7 +728,6 @@ impl SmartSolver {
         }
 
         let mut solutions = Vec::new();
-
         if let Some(unhandled_treasure) = self.unhandled_treasures.pop() {
             for (room, exit) in self.possible_treasure_rooms(unhandled_treasure) {
                 let mut solver = self.clone();
@@ -737,41 +736,38 @@ impl SmartSolver {
                 }
             }
         } else {
-            while let Some(next_pos) = self.next_pos {
-                if self.level[next_pos] != SmartSolverCell::Unknown {
-                    self.next_pos = self.level.next_pos(&next_pos);
-                } else {
-                    break;
-                }
-            }
+            // TODO: Try smarter cell selection
 
-            if let Some(next_pos) = self.next_pos {
-                self.next_pos = self.level.next_pos(&next_pos);
+            while let Some(pos) = self.next_pos {
+                self.next_pos = self.level.next_pos(&pos);
 
-                let mut solver = self.clone();
-                if solver.put_wall(next_pos).is_ok() {
-                    solutions.extend(solver.all_solutions());
-                }
+                if self.level[pos] == SmartSolverCell::Unknown {
+                    let mut solver = self.clone();
+                    if solver.put_wall(pos).is_ok() {
+                        solutions.extend(solver.all_solutions());
+                    }
 
-                let mut solver = self.clone();
-
-                if next_pos.x == 0
-                    || next_pos.y == 0
-                    || !matches!(
-                        (
-                            self.level[(next_pos.x - 1, next_pos.y).into()],
-                            self.level[(next_pos.x, next_pos.y - 1).into()],
-                            self.level[(next_pos.x - 1, next_pos.y - 1).into()],
-                        ),
-                        (
-                            SmartSolverCell::Hallway,
-                            SmartSolverCell::Hallway,
-                            SmartSolverCell::Hallway
+                    if pos.x == 0
+                        || pos.y == 0
+                        || !matches!(
+                            (
+                                self.level[(pos.x - 1, pos.y).into()],
+                                self.level[(pos.x, pos.y - 1).into()],
+                                self.level[(pos.x - 1, pos.y - 1).into()],
+                            ),
+                            (
+                                SmartSolverCell::Hallway,
+                                SmartSolverCell::Hallway,
+                                SmartSolverCell::Hallway
+                            )
                         )
-                    )
-                {
-                    solver.put_hallway(next_pos);
-                    solutions.extend(solver.all_solutions());
+                    {
+                        let mut solver = self.clone();
+                        solver.put_hallway(pos);
+                        solutions.extend(solver.all_solutions());
+                    }
+
+                    break;
                 }
             }
         }
