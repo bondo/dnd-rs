@@ -418,8 +418,7 @@ impl Solver {
                 }
             }
 
-            let mut remove_unsatisfied_monsters = Vec::new();
-            for idx in 0..self.unsatisfied_monsters.len() {
+            for idx in (0..self.unsatisfied_monsters.len()).rev() {
                 let pos = self.unsatisfied_monsters[idx];
 
                 let non_wall_neighbors = self
@@ -469,7 +468,7 @@ impl Solver {
                                 self.put_wall(n)?;
                             }
 
-                            remove_unsatisfied_monsters.push(idx);
+                            self.unsatisfied_monsters.swap_remove(idx);
                         }
                     }
                     1 => {
@@ -480,15 +479,12 @@ impl Solver {
                                 changed = true;
                             }
                         }
-                        remove_unsatisfied_monsters.push(idx);
+                        self.unsatisfied_monsters.swap_remove(idx);
                     }
                     _ => {
                         return Err(());
                     }
                 }
-            }
-            for idx in remove_unsatisfied_monsters.into_iter().rev() {
-                self.unsatisfied_monsters.swap_remove(idx);
             }
         }
 
