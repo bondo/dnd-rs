@@ -184,7 +184,7 @@ impl SolverLevel {
             return false;
         }
 
-        ![(0, 0), (0, 1), (1, 0), (1, 1)]
+        ![(0, 0), (1, 0), (0, 1), (1, 1)]
             .into_iter()
             .any(|(dx, dy)| {
                 matches!(
