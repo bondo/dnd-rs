@@ -69,6 +69,10 @@ impl<C> Grid<C> {
             .map(|(idx, c)| (c, (idx % self.width, idx / self.width).into()))
     }
 
+    pub(crate) fn iter_mut_cells(&mut self) -> impl Iterator<Item = &mut C> {
+        self.cells.iter_mut()
+    }
+
     pub(crate) fn iter_neighbors(
         &self,
         GridPos { x, y }: GridPos,

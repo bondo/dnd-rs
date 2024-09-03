@@ -190,7 +190,7 @@ impl LevelBuilder {
                         return true;
                     }
 
-                    return false;
+                    false
                 });
 
                 if has_too_many_walls {
@@ -202,11 +202,10 @@ impl LevelBuilder {
 
             if self.check_unique_solution {
                 let solver_start = chrono::Utc::now();
-                let mut solver = Solver::from_level(&level);
-                let Some(_) = solver.next() else {
+                let solutions = Solver::from_level(&level).all_solutions();
+                if solutions.is_empty() {
                     panic!("Generated level without solution:\n{:?}", level);
                 };
-                let has_unique_solution = solver.next().is_none();
                 info!(
                     "Solved level in {:?}",
                     chrono::Utc::now()
@@ -215,7 +214,7 @@ impl LevelBuilder {
                         .unwrap()
                 );
 
-                if has_unique_solution {
+                if solutions.len() == 1 {
                     info!("Level has unique solution");
                 } else {
                     info!("Level has multiple solutions");

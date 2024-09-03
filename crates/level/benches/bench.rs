@@ -17,9 +17,9 @@ fn run_level_generation_benchmark(c: &mut Criterion) {
 
 fn run_solver_benchmarks(c: &mut Criterion) {
     fastrand::seed(1337);
-    c.bench_function("solve 8x8 level", |b| {
+    c.bench_function("solve 10x10 level", |b| {
         b.iter_batched_ref(
-            || Level::random(8, 8).unwrap(),
+            || Level::random(10, 10).unwrap(),
             |level| Solver::from_level(level).first_solution(),
             BatchSize::SmallInput,
         );
@@ -39,7 +39,7 @@ fn run_solver_benchmarks(c: &mut Criterion) {
 1 ? T ? ? ? ? ? M
 4 ? ? ? ? ? ? ? ?
 4 ? ? ? ? ? ? ? M
-   "#,
+"#,
             ))
             .unwrap()
             .first_solution()
