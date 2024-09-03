@@ -432,11 +432,11 @@ impl Solver {
                     return Err(());
                 }
 
-                let num_hallway_neigbors = self
+                let num_hallway_neighbors = self
                     .level
                     .count_neighbors(pos, |&n| n == SolverCell::Hallway);
 
-                match num_hallway_neigbors {
+                match num_hallway_neighbors {
                     0 => {
                         let mut sure_ways_out = if non_wall_neighbors.len() == 1 {
                             non_wall_neighbors
@@ -582,8 +582,8 @@ impl Solver {
                     continue;
                 }
 
-                let perimiter = self.get_room_peremiter(room);
-                if perimiter.iter().any(|&pos| {
+                let perimeter = self.get_room_perimeter(room);
+                if perimeter.iter().any(|&pos| {
                     !matches!(
                         self.level[pos],
                         SolverCell::Wall | SolverCell::Hallway | SolverCell::Unknown
@@ -592,23 +592,23 @@ impl Solver {
                     continue;
                 }
 
-                let perimiter_hallways = perimiter
+                let perimeter_hallways = perimeter
                     .iter()
                     .filter(|&&p| self.level[p] == SolverCell::Hallway)
                     .collect::<Vec<_>>();
 
-                if perimiter_hallways.len() > 1 {
+                if perimeter_hallways.len() > 1 {
                     continue;
                 }
 
-                if perimiter_hallways.len() == 1 {
-                    let exit = *perimiter_hallways[0];
+                if perimeter_hallways.len() == 1 {
+                    let exit = *perimeter_hallways[0];
 
                     possible_rooms.push((room, exit));
                     continue;
                 }
 
-                let potential_exits = perimiter
+                let potential_exits = perimeter
                     .into_iter()
                     .filter(|&p| {
                         self.level[p] == SolverCell::Unknown
@@ -629,38 +629,38 @@ impl Solver {
         possible_rooms
     }
 
-    fn get_room_peremiter(&self, room: GridPos) -> Vec<GridPos> {
-        let mut perimiter = Vec::new();
+    fn get_room_perimeter(&self, room: GridPos) -> Vec<GridPos> {
+        let mut perimeter = Vec::new();
 
         // Left side
         if room.x > 0 {
             (room.y..room.y + 3).for_each(|y| {
-                perimiter.push((room.x - 1, y).into());
+                perimeter.push((room.x - 1, y).into());
             });
         }
 
         // Right side
         if room.x + 3 < self.level.width() {
             (room.y..room.y + 3).for_each(|y| {
-                perimiter.push((room.x + 3, y).into());
+                perimeter.push((room.x + 3, y).into());
             });
         }
 
         // Top side
         if room.y > 0 {
             (room.x..room.x + 3).for_each(|x| {
-                perimiter.push((x, room.y - 1).into());
+                perimeter.push((x, room.y - 1).into());
             });
         }
 
         // Bottom side
         if room.y + 3 < self.level.height() {
             (room.x..room.x + 3).for_each(|x| {
-                perimiter.push((x, room.y + 3).into());
+                perimeter.push((x, room.y + 3).into());
             });
         }
 
-        perimiter
+        perimeter
     }
 
     fn place_treasure_room(&mut self, room: GridPos, exit: GridPos) -> Result<(), ()> {
@@ -677,7 +677,7 @@ impl Solver {
             }
         }
 
-        for pos in self.get_room_peremiter(room) {
+        for pos in self.get_room_perimeter(room) {
             if self.level[pos] == SolverCell::Unknown {
                 self.put_wall(pos)?;
             }
